@@ -1,0 +1,1588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saar Advisory CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #1a2e44;
+    --primary-light: #2a4a6e;
+    --accent: #c8832a;
+    --accent-light: #e8a84a;
+    --surface: #ffffff;
+    --surface2: #f7f5f0;
+    --surface3: #ede9e0;
+    --text1: #1a2e44;
+    --text2: #4a6080;
+    --text3: #8a9ab0;
+    --border: #d8d0c0;
+    --success: #2d7a4f;
+    --success-bg: #e8f5ee;
+    --warning: #b86a00;
+    --warning-bg: #fff3e0;
+    --danger: #c0392b;
+    --danger-bg: #fdecea;
+    --info: #1a5f9e;
+    --info-bg: #e3f0fb;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --shadow: 0 2px 8px rgba(26,46,68,0.08);
+    --shadow-lg: 0 8px 24px rgba(26,46,68,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--surface2);
+    color: var(--text1);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* SIDEBAR */
+  #sidebar {
+    position: fixed; top: 0; left: 0;
+    width: 220px; height: 100vh;
+    background: var(--primary);
+    display: flex; flex-direction: column;
+    z-index: 100;
+  }
+
+  .sidebar-logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .sidebar-logo .company {
+    font-family: 'DM Serif Display', serif;
+    font-size: 18px;
+    color: #ffffff;
+    line-height: 1.2;
+  }
+  .sidebar-logo .tagline {
+    font-size: 11px;
+    color: rgba(255,255,255,0.45);
+    margin-top: 2px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .nav-section {
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .nav-label {
+    padding: 6px 20px 4px;
+    font-size: 10px;
+    color: rgba(255,255,255,0.3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 20px;
+    color: rgba(255,255,255,0.65);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 13.5px;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.06); color: white; }
+  .nav-item.active { background: rgba(200,131,42,0.2); color: var(--accent-light); }
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 16px 20px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .sync-status {
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: #4caf50; }
+  .sync-dot.error { background: #f44336; }
+  .sync-dot.pending { background: var(--accent); }
+
+  /* MAIN */
+  #main {
+    margin-left: 220px;
+    min-height: 100vh;
+  }
+
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 50;
+  }
+  .page-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    color: var(--primary);
+  }
+  .topbar-actions { display: flex; gap: 10px; align-items: center; }
+
+  .btn {
+    padding: 7px 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text1);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { background: var(--surface2); }
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+  .btn-primary:hover { background: var(--primary-light); }
+  .btn-accent {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  .btn-accent:hover { background: var(--accent-light); }
+  .btn-sm { padding: 5px 11px; font-size: 12px; }
+  .btn-danger { background: var(--danger-bg); color: var(--danger); border-color: #f0b0a8; }
+
+  .content { padding: 24px 28px; }
+
+  /* DASHBOARD */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+  }
+  .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value { font-size: 28px; font-weight: 600; color: var(--primary); margin-top: 4px; }
+  .stat-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  /* CARDS */
+  .section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 20px;
+  }
+  .card-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--primary); }
+  .card-body { padding: 16px 18px; }
+
+  /* TABLE */
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th {
+    text-align: left;
+    padding: 9px 12px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    font-weight: 500;
+  }
+  .data-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--surface3);
+    color: var(--text1);
+    font-size: 13px;
+  }
+  .data-table tr:hover td { background: var(--surface2); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .clickable { cursor: pointer; }
+  .company-name { font-weight: 500; color: var(--primary); }
+  .company-name:hover { text-decoration: underline; }
+
+  /* BADGES */
+  .badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .badge-lead { background: var(--info-bg); color: var(--info); }
+  .badge-prospect { background: var(--warning-bg); color: var(--warning); }
+  .badge-customer { background: var(--success-bg); color: var(--success); }
+  .badge-rejected { background: var(--danger-bg); color: var(--danger); }
+
+  .priority-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .priority-focus { background: #fff3e0; color: #e65100; }
+  .priority-nurturing { background: var(--surface3); color: var(--text2); }
+  .priority-hold { background: #f5f5f5; color: #9e9e9e; }
+
+  /* FILTERS */
+  .filter-bar {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 16px; align-items: center;
+  }
+  .filter-bar input, .filter-bar select {
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    background: var(--surface);
+    color: var(--text1);
+  }
+  .filter-bar input:focus, .filter-bar select:focus {
+    outline: none;
+    border-color: var(--primary-light);
+  }
+  .filter-bar input[type="text"] { width: 220px; }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(26,46,68,0.5);
+    z-index: 1000;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 40px 20px;
+    overflow-y: auto;
+  }
+  .modal {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 640px;
+    box-shadow: var(--shadow-lg);
+  }
+  .modal-header {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 18px;
+    color: var(--primary);
+  }
+  .modal-body { padding: 20px 22px; }
+  .modal-footer {
+    padding: 14px 22px;
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: flex-end; gap: 10px;
+  }
+  .close-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 20px; color: var(--text3); line-height: 1;
+    padding: 2px 6px;
+  }
+  .close-btn:hover { color: var(--text1); }
+
+  /* FORM */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-grid.single { grid-template-columns: 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-label { font-size: 12px; font-weight: 500; color: var(--text2); }
+  .form-input {
+    padding: 8px 11px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--text1);
+    background: var(--surface);
+  }
+  .form-input:focus { outline: none; border-color: var(--primary-light); }
+  textarea.form-input { resize: vertical; min-height: 80px; }
+  select.form-input { cursor: pointer; }
+
+  /* DETAIL VIEW */
+  .detail-header {
+    padding: 20px 28px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-back {
+    font-size: 12px; color: var(--text3);
+    cursor: pointer; margin-bottom: 10px;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .detail-back:hover { color: var(--primary); }
+  .detail-company-name {
+    font-family: 'DM Serif Display', serif;
+    font-size: 26px; color: var(--primary);
+  }
+  .detail-meta { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+
+  .tabs {
+    display: flex; gap: 0;
+    border-bottom: 2px solid var(--border);
+    padding: 0 28px;
+    background: var(--surface);
+  }
+  .tab {
+    padding: 12px 18px;
+    font-size: 13px; font-weight: 500;
+    color: var(--text3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text1); }
+  .tab.active { color: var(--primary); border-bottom-color: var(--accent); }
+
+  .tab-content { padding: 24px 28px; }
+
+  /* INFO GRID */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .info-item { }
+  .info-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .info-value { font-size: 14px; color: var(--text1); }
+  .info-link { color: var(--info); text-decoration: none; }
+  .info-link:hover { text-decoration: underline; }
+
+  /* INTERACTIONS */
+  .interaction-item {
+    border-left: 3px solid var(--border);
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .interaction-item.Call { border-left-color: var(--info); }
+  .interaction-item.Email { border-left-color: #9c27b0; }
+  .interaction-item.Meeting { border-left-color: var(--success); }
+  .interaction-item.WhatsApp { border-left-color: #4caf50; }
+  .interaction-item.Other { border-left-color: var(--text3); }
+  .interaction-type {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 3px;
+  }
+  .interaction-date { font-size: 11px; color: var(--text3); }
+  .interaction-notes { font-size: 13px; color: var(--text1); margin-top: 4px; line-height: 1.5; }
+
+  /* PROJECT */
+  .project-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .project-title { font-weight: 500; font-size: 14px; }
+  .project-meta { font-size: 12px; color: var(--text2); margin-top: 4px; }
+  .project-status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; margin-top: 6px; }
+  .status-active { background: var(--success-bg); color: var(--success); }
+  .status-pending { background: var(--warning-bg); color: var(--warning); }
+  .status-completed { background: var(--surface3); color: var(--text2); }
+  .status-onhold { background: var(--danger-bg); color: var(--danger); }
+
+  /* FINANCIAL */
+  .financial-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .financial-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+  .financial-card-title { font-size: 12px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .financial-value { font-size: 20px; font-weight: 600; color: var(--primary); }
+  .financial-detail { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+  /* CONTACT CARD */
+  .contact-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 10px;
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .contact-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--info-bg);
+    color: var(--info);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600;
+    flex-shrink: 0;
+  }
+  .contact-info { flex: 1; }
+  .contact-name { font-weight: 500; font-size: 14px; }
+  .contact-title { font-size: 12px; color: var(--text2); margin-top: 1px; }
+  .contact-details { display: flex; gap: 14px; margin-top: 6px; flex-wrap: wrap; }
+  .contact-detail { font-size: 12px; color: var(--text3); display: flex; align-items: center; gap: 4px; }
+
+  /* EMPTY STATE */
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); }
+  .empty-icon { font-size: 32px; margin-bottom: 10px; }
+  .empty-text { font-size: 14px; }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--primary);
+    color: white;
+    padding: 12px 18px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    z-index: 9999;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* UPCOMING MEETINGS */
+  .meeting-item {
+    display: flex; align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--surface3);
+    gap: 12px;
+  }
+  .meeting-item:last-child { border-bottom: none; }
+  .meeting-date-box {
+    text-align: center;
+    background: var(--primary);
+    color: white;
+    border-radius: var(--radius);
+    padding: 6px 10px;
+    min-width: 46px;
+    flex-shrink: 0;
+  }
+  .meeting-day { font-size: 18px; font-weight: 600; line-height: 1; }
+  .meeting-month { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8; }
+  .meeting-info { flex: 1; }
+  .meeting-company { font-weight: 500; font-size: 14px; }
+  .meeting-notes { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  /* PIPELINE */
+  .pipeline-bar {
+    display: flex; gap: 6px; margin-bottom: 8px;
+    height: 8px; border-radius: 4px; overflow: hidden;
+  }
+  .pipeline-segment { height: 100%; border-radius: 0; transition: width 0.3s; }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--surface3);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--text2);
+    margin: 2px;
+  }
+
+  .section-divider {
+    font-size: 11px; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin: 16px 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  @media (max-width: 768px) {
+    #sidebar { width: 60px; }
+    .sidebar-logo .company, .sidebar-logo .tagline, .nav-label, .nav-item span { display: none; }
+    #main { margin-left: 60px; }
+    .form-grid { grid-template-columns: 1fr; }
+    .info-grid { grid-template-columns: 1fr; }
+    .financial-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-logo">
+    <div class="company">Saar Advisory</div>
+    <div class="tagline">CRM</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Main</div>
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <span class="nav-icon">◈</span><span>Dashboard</span>
+    </div>
+    <div class="nav-item" onclick="showPage('companies')">
+      <span class="nav-icon">⬡</span><span>Companies</span>
+    </div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Data</div>
+    <div class="nav-item" onclick="exportToExcel()">
+      <span class="nav-icon">⬇</span><span>Export to Excel</span>
+    </div>
+    <div class="nav-item" onclick="showPage('settings')">
+      <span class="nav-icon">⚙</span><span>Settings</span>
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="sync-status" id="syncStatus">
+      <div class="sync-dot pending" id="syncDot"></div>
+      <span id="syncText">Not connected</span>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="pageContainer"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ============================================================
+// DATA LAYER
+// ============================================================
+let DB = {
+  companies: [],
+  contacts: [],
+  interactions: [],
+  projects: [],
+  settings: { scriptUrl: '', lastSync: null }
+};
+
+function loadDB() {
+  try {
+    const saved = localStorage.getItem('saar_crm_db');
+    if (saved) DB = JSON.parse(saved);
+    if (!DB.settings) DB.settings = { scriptUrl: '', lastSync: null };
+  } catch(e) {}
+}
+
+function saveDB() {
+  try { localStorage.setItem('saar_crm_db', JSON.stringify(DB)); } catch(e) {}
+  syncToSheets();
+}
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
+// ============================================================
+// GOOGLE SHEETS SYNC
+// ============================================================
+async function syncToSheets() {
+  if (!DB.settings.scriptUrl) return;
+  try {
+    setSyncStatus('pending', 'Syncing...');
+    const resp = await fetch(DB.settings.scriptUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'save', data: DB })
+    });
+    if (resp.ok) {
+      DB.settings.lastSync = new Date().toISOString();
+      setSyncStatus('ok', 'Synced ✓');
+    } else {
+      setSyncStatus('error', 'Sync failed');
+    }
+  } catch(e) {
+    setSyncStatus('error', 'Sync error');
+  }
+}
+
+async function loadFromSheets() {
+  if (!DB.settings.scriptUrl) return;
+  try {
+    setSyncStatus('pending', 'Loading...');
+    const resp = await fetch(DB.settings.scriptUrl + '?action=load');
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.companies) {
+        const url = DB.settings.scriptUrl;
+        DB = data;
+        DB.settings.scriptUrl = url;
+        localStorage.setItem('saar_crm_db', JSON.stringify(DB));
+        setSyncStatus('ok', 'Loaded ✓');
+        showPage(currentPage);
+      }
+    }
+  } catch(e) {
+    setSyncStatus('error', 'Load error');
+  }
+}
+
+function setSyncStatus(state, text) {
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncText');
+  dot.className = 'sync-dot' + (state === 'error' ? ' error' : state === 'pending' ? ' pending' : '');
+  txt.textContent = text;
+}
+
+// ============================================================
+// ROUTING
+// ============================================================
+let currentPage = 'dashboard';
+let currentCompanyId = null;
+let currentTab = 'overview';
+
+function showPage(page, companyId) {
+  currentPage = page;
+  if (companyId) currentCompanyId = companyId;
+
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navMap = { dashboard: 0, companies: 1 };
+  const navItems = document.querySelectorAll('.nav-item');
+  if (navMap[page] !== undefined) navItems[navMap[page]].classList.add('active');
+
+  const container = document.getElementById('pageContainer');
+  if (page === 'dashboard') container.innerHTML = renderDashboard();
+  else if (page === 'companies') container.innerHTML = renderCompanies();
+  else if (page === 'company') { currentTab = 'overview'; container.innerHTML = renderCompanyDetail(currentCompanyId); }
+  else if (page === 'settings') container.innerHTML = renderSettings();
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard() {
+  const companies = DB.companies;
+  const leads = companies.filter(c => c.status === 'Lead').length;
+  const prospects = companies.filter(c => c.status === 'Prospect').length;
+  const customers = companies.filter(c => c.status === 'Customer').length;
+  const total = companies.length;
+
+  const retainerTotal = companies
+    .filter(c => c.financial && c.financial.retainer)
+    .reduce((sum, c) => sum + (parseFloat(c.financial.retainer) || 0), 0);
+
+  const focusAccounts = companies.filter(c => c.priority === 'Active Focus');
+  const upcoming = companies
+    .filter(c => c.nextMeeting)
+    .sort((a, b) => new Date(a.nextMeeting) - new Date(b.nextMeeting))
+    .slice(0, 5);
+
+  const recentInteractions = DB.interactions
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 5)
+    .map(i => {
+      const co = companies.find(c => c.id === i.companyId);
+      return { ...i, companyName: co ? co.name : 'Unknown' };
+    });
+
+  return `
+  <div class="topbar">
+    <div class="page-title">Dashboard</div>
+    <div class="topbar-actions">
+      <button class="btn btn-primary" onclick="openAddCompany()">+ Add Company</button>
+    </div>
+  </div>
+  <div class="content">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Companies</div>
+        <div class="stat-value">${total}</div>
+        <div class="stat-sub">In pipeline</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Leads</div>
+        <div class="stat-value" style="color: var(--info)">${leads}</div>
+        <div class="stat-sub">Early stage</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Prospects</div>
+        <div class="stat-value" style="color: var(--warning)">${prospects}</div>
+        <div class="stat-sub">Active discussions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Customers</div>
+        <div class="stat-value" style="color: var(--success)">${customers}</div>
+        <div class="stat-sub">Converted</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Monthly Retainer</div>
+        <div class="stat-value" style="font-size:20px">₹${retainerTotal.toLocaleString('en-IN')}</div>
+        <div class="stat-sub">Total contracted</div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+      <!-- Focus Accounts -->
+      <div class="section-card">
+        <div class="card-header">
+          <div class="card-title">🎯 Active Focus Accounts</div>
+        </div>
+        <div class="card-body" style="padding: 0;">
+          ${focusAccounts.length === 0 ? `<div class="empty-state"><div class="empty-text">No focus accounts set</div></div>` :
+            focusAccounts.map(c => `
+            <div style="padding:10px 16px; border-bottom:1px solid var(--surface3); display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="showPage('company','${c.id}')">
+              <div>
+                <div style="font-weight:500; font-size:14px;">${c.name}</div>
+                <div style="font-size:12px; color:var(--text2)">${c.country || ''} ${c.industry || ''}</div>
+              </div>
+              <span class="badge badge-${c.status ? c.status.toLowerCase() : 'lead'}">${c.status || 'Lead'}</span>
+            </div>`).join('')
+          }
+        </div>
+      </div>
+
+      <!-- Upcoming Meetings -->
+      <div class="section-card">
+        <div class="card-header">
+          <div class="card-title">📅 Upcoming Meetings</div>
+        </div>
+        <div class="card-body">
+          ${upcoming.length === 0 ? `<div class="empty-state"><div class="empty-text">No upcoming meetings</div></div>` :
+            upcoming.map(c => {
+              const d = new Date(c.nextMeeting);
+              const day = d.getDate();
+              const month = d.toLocaleString('default', { month: 'short' });
+              return `
+              <div class="meeting-item" onclick="showPage('company','${c.id}')" style="cursor:pointer">
+                <div class="meeting-date-box">
+                  <div class="meeting-day">${day}</div>
+                  <div class="meeting-month">${month}</div>
+                </div>
+                <div class="meeting-info">
+                  <div class="meeting-company">${c.name}</div>
+                  <div class="meeting-notes">${c.nextMeetingNote || 'Meeting scheduled'}</div>
+                </div>
+              </div>`;
+            }).join('')
+          }
+        </div>
+      </div>
+
+      <!-- Recent Interactions -->
+      <div class="section-card" style="grid-column:1/-1">
+        <div class="card-header">
+          <div class="card-title">💬 Recent Interactions</div>
+        </div>
+        <div class="card-body" style="padding:0">
+          ${recentInteractions.length === 0 ? `<div class="empty-state"><div class="empty-text">No interactions logged yet</div></div>` :
+            `<table class="data-table">
+              <thead><tr>
+                <th>Date</th><th>Company</th><th>Type</th><th>Notes</th>
+              </tr></thead>
+              <tbody>
+                ${recentInteractions.map(i => `<tr onclick="showPage('company','${i.companyId}')" class="clickable">
+                  <td>${formatDate(i.date)}</td>
+                  <td class="company-name">${i.companyName}</td>
+                  <td><span class="badge badge-lead">${i.type}</span></td>
+                  <td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${i.notes || ''}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>`
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+  `;
+}
+
+// ============================================================
+// COMPANIES LIST
+// ============================================================
+function renderCompanies() {
+  return `
+  <div class="topbar">
+    <div class="page-title">Companies</div>
+    <div class="topbar-actions">
+      <button class="btn btn-primary" onclick="openAddCompany()">+ Add Company</button>
+    </div>
+  </div>
+  <div class="content">
+    <div class="filter-bar">
+      <input type="text" id="searchInput" placeholder="Search companies..." oninput="filterCompanies()">
+      <select id="filterStatus" onchange="filterCompanies()">
+        <option value="">All Statuses</option>
+        <option>Lead</option><option>Prospect</option>
+        <option>Customer</option><option>Rejected</option>
+      </select>
+      <select id="filterCountry" onchange="filterCompanies()">
+        <option value="">All Countries</option>
+        ${[...new Set(DB.companies.map(c => c.country).filter(Boolean))].map(c => `<option>${c}</option>`).join('')}
+      </select>
+      <select id="filterPriority" onchange="filterCompanies()">
+        <option value="">All Priorities</option>
+        <option>Active Focus</option><option>Nurturing</option><option>On Hold</option>
+      </select>
+      <select id="filterIndustry" onchange="filterCompanies()">
+        <option value="">All Industries</option>
+        ${[...new Set(DB.companies.map(c => c.industry).filter(Boolean))].map(i => `<option>${i}</option>`).join('')}
+      </select>
+    </div>
+    <div class="section-card">
+      <div id="companiesTable">
+        ${renderCompaniesTable(DB.companies)}
+      </div>
+    </div>
+  </div>
+  `;
+}
+
+function renderCompaniesTable(companies) {
+  if (companies.length === 0) return `<div class="empty-state"><div class="empty-icon">⬡</div><div class="empty-text">No companies yet. Add your first!</div></div>`;
+  return `
+  <table class="data-table">
+    <thead><tr>
+      <th>Company</th><th>Status</th><th>Priority</th>
+      <th>Location</th><th>Industry</th>
+      <th>First Contact</th><th>Next Meeting</th><th>Actions</th>
+    </tr></thead>
+    <tbody>
+      ${companies.map(c => `
+      <tr>
+        <td class="company-name clickable" onclick="showPage('company','${c.id}')">${c.name}</td>
+        <td><span class="badge badge-${(c.status||'lead').toLowerCase()}">${c.status||'Lead'}</span></td>
+        <td>${c.priority ? `<span class="priority-badge priority-${c.priority === 'Active Focus' ? 'focus' : c.priority === 'On Hold' ? 'hold' : 'nurturing'}">${c.priority}</span>` : '—'}</td>
+        <td>${[c.city, c.state, c.country].filter(Boolean).join(', ') || '—'}</td>
+        <td>${c.industry || '—'}</td>
+        <td>${c.firstContact ? formatDate(c.firstContact) : '—'}</td>
+        <td>${c.nextMeeting ? formatDate(c.nextMeeting) : '—'}</td>
+        <td>
+          <button class="btn btn-sm" onclick="openEditCompany('${c.id}')">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteCompany('${c.id}')">Del</button>
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+function filterCompanies() {
+  const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  const status = document.getElementById('filterStatus')?.value;
+  const country = document.getElementById('filterCountry')?.value;
+  const priority = document.getElementById('filterPriority')?.value;
+  const industry = document.getElementById('filterIndustry')?.value;
+
+  let filtered = DB.companies.filter(c => {
+    if (search && !c.name.toLowerCase().includes(search) && !(c.industry||'').toLowerCase().includes(search)) return false;
+    if (status && c.status !== status) return false;
+    if (country && c.country !== country) return false;
+    if (priority && c.priority !== priority) return false;
+    if (industry && c.industry !== industry) return false;
+    return true;
+  });
+
+  document.getElementById('companiesTable').innerHTML = renderCompaniesTable(filtered);
+}
+
+// ============================================================
+// COMPANY DETAIL
+// ============================================================
+function renderCompanyDetail(id) {
+  const c = DB.companies.find(c => c.id === id);
+  if (!c) return '<div class="content">Company not found</div>';
+
+  const contacts = DB.contacts.filter(ct => ct.companyId === id);
+  const interactions = DB.interactions.filter(i => i.companyId === id).sort((a,b) => new Date(b.date) - new Date(a.date));
+  const projects = DB.projects.filter(p => p.companyId === id);
+
+  const tabContent = {
+    overview: renderOverviewTab(c),
+    contacts: renderContactsTab(contacts, id),
+    interactions: renderInteractionsTab(interactions, id),
+    projects: renderProjectsTab(projects, id),
+    financials: renderFinancialsTab(c)
+  };
+
+  return `
+  <div class="detail-header">
+    <div class="detail-back" onclick="showPage('companies')">← Back to Companies</div>
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px">
+      <div>
+        <div class="detail-company-name">${c.name}</div>
+        <div class="detail-meta">
+          <span class="badge badge-${(c.status||'lead').toLowerCase()}">${c.status||'Lead'}</span>
+          ${c.priority ? `<span class="priority-badge priority-${c.priority === 'Active Focus' ? 'focus' : c.priority === 'On Hold' ? 'hold' : 'nurturing'}">${c.priority}</span>` : ''}
+          ${(c.tags||[]).map(t => `<span class="tag">${t}</span>`).join('')}
+          ${c.website ? `<a href="${c.website}" target="_blank" class="btn btn-sm">🌐 Website</a>` : ''}
+          ${c.notebookLM ? `<a href="${c.notebookLM}" target="_blank" class="btn btn-sm">📓 NotebookLM</a>` : ''}
+        </div>
+      </div>
+      <div style="display:flex; gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="openEditCompany('${id}')">Edit Company</button>
+        <button class="btn btn-accent btn-sm" onclick="openAddInteraction('${id}')">+ Log Interaction</button>
+      </div>
+    </div>
+  </div>
+  <div class="tabs">
+    ${['overview','contacts','interactions','projects','financials'].map(t => `
+      <div class="tab ${currentTab===t?'active':''}" onclick="switchTab('${t}','${id}')">${t.charAt(0).toUpperCase()+t.slice(1)}</div>
+    `).join('')}
+  </div>
+  <div class="tab-content" id="tabContent">
+    ${tabContent[currentTab] || ''}
+  </div>`;
+}
+
+function switchTab(tab, id) {
+  currentTab = tab;
+  const c = DB.companies.find(c => c.id === id);
+  if (!c) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach((t,i) => { if(['overview','contacts','interactions','projects','financials'][i]===tab) t.classList.add('active'); });
+
+  const contacts = DB.contacts.filter(ct => ct.companyId === id);
+  const interactions = DB.interactions.filter(i => i.companyId === id).sort((a,b) => new Date(b.date)-new Date(a.date));
+  const projects = DB.projects.filter(p => p.companyId === id);
+
+  const content = {
+    overview: renderOverviewTab(c),
+    contacts: renderContactsTab(contacts, id),
+    interactions: renderInteractionsTab(interactions, id),
+    projects: renderProjectsTab(projects, id),
+    financials: renderFinancialsTab(c)
+  };
+  document.getElementById('tabContent').innerHTML = content[tab] || '';
+}
+
+function renderOverviewTab(c) {
+  return `
+  <div class="info-grid">
+    <div class="info-item"><div class="info-label">Address</div>
+      <div class="info-value">${[c.address, c.city, c.state, c.country, c.pincode].filter(Boolean).join(', ') || '—'}</div></div>
+    <div class="info-item"><div class="info-label">Industry</div>
+      <div class="info-value">${c.industry || '—'}</div></div>
+    <div class="info-item"><div class="info-label">Lead Source</div>
+      <div class="info-value">${c.leadSource || '—'}</div></div>
+    <div class="info-item"><div class="info-label">Referred By</div>
+      <div class="info-value">${c.referredBy || '—'}</div></div>
+    <div class="info-item"><div class="info-label">First Contact</div>
+      <div class="info-value">${c.firstContact ? formatDate(c.firstContact) : '—'}</div></div>
+    <div class="info-item"><div class="info-label">Conversion/Rejection Date</div>
+      <div class="info-value">${c.conversionDate ? formatDate(c.conversionDate) : '—'}</div></div>
+    <div class="info-item"><div class="info-label">Next Meeting</div>
+      <div class="info-value">${c.nextMeeting ? formatDate(c.nextMeeting) : '—'}${c.nextMeetingNote ? ` — ${c.nextMeetingNote}` : ''}</div></div>
+    <div class="info-item"><div class="info-label">Next Action</div>
+      <div class="info-value">${c.nextAction || '—'}</div></div>
+  </div>
+  ${c.description ? `<div style="margin-top:20px"><div class="section-divider">About the Company</div><div style="font-size:14px; line-height:1.7; color:var(--text1)">${c.description}</div></div>` : ''}
+  ${c.website || c.notebookLM ? `<div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap">
+    ${c.website ? `<div class="info-item"><div class="info-label">Website</div><a href="${c.website}" target="_blank" class="info-link info-value">${c.website}</a></div>` : ''}
+    ${c.notebookLM ? `<div class="info-item"><div class="info-label">NotebookLM</div><a href="${c.notebookLM}" target="_blank" class="info-link info-value">Open Notebook</a></div>` : ''}
+  </div>` : ''}
+  `;
+}
+
+function renderContactsTab(contacts, companyId) {
+  return `
+  <div style="display:flex; justify-content:flex-end; margin-bottom:14px">
+    <button class="btn btn-primary" onclick="openAddContact('${companyId}')">+ Add Contact</button>
+  </div>
+  ${contacts.length === 0 ? `<div class="empty-state"><div class="empty-icon">👤</div><div class="empty-text">No contacts yet</div></div>` :
+    contacts.map(ct => {
+      const initials = ct.name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+      return `<div class="contact-card">
+        <div class="contact-avatar">${initials}</div>
+        <div class="contact-info">
+          <div class="contact-name">${ct.name}</div>
+          <div class="contact-title">${ct.title || ''}</div>
+          <div class="contact-details">
+            ${ct.email ? `<span class="contact-detail">✉ <a href="mailto:${ct.email}" class="info-link">${ct.email}</a></span>` : ''}
+            ${ct.phone ? `<span class="contact-detail">📞 ${ct.phone}</span>` : ''}
+            ${ct.linkedin ? `<span class="contact-detail"><a href="${ct.linkedin}" target="_blank" class="info-link">LinkedIn</a></span>` : ''}
+          </div>
+        </div>
+        <div>
+          <button class="btn btn-sm" onclick="openEditContact('${ct.id}')">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteContact('${ct.id}')">Del</button>
+        </div>
+      </div>`;
+    }).join('')
+  }`;
+}
+
+function renderInteractionsTab(interactions, companyId) {
+  return `
+  <div style="display:flex; justify-content:flex-end; margin-bottom:14px">
+    <button class="btn btn-primary" onclick="openAddInteraction('${companyId}')">+ Log Interaction</button>
+  </div>
+  ${interactions.length === 0 ? `<div class="empty-state"><div class="empty-icon">💬</div><div class="empty-text">No interactions logged yet</div></div>` :
+    interactions.map(i => `
+    <div class="interaction-item ${i.type}">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start">
+        <div>
+          <div class="interaction-type" style="color:${typeColor(i.type)}">${i.type}</div>
+          <div class="interaction-date">${formatDate(i.date)} ${i.time ? '· ' + i.time : ''}</div>
+          <div class="interaction-notes">${i.notes || ''}</div>
+        </div>
+        <button class="btn btn-sm btn-danger" onclick="deleteInteraction('${i.id}')">Del</button>
+      </div>
+    </div>`).join('')
+  }`;
+}
+
+function renderProjectsTab(projects, companyId) {
+  return `
+  <div style="display:flex; justify-content:flex-end; margin-bottom:14px">
+    <button class="btn btn-primary" onclick="openAddProject('${companyId}')">+ Add Project/Issue</button>
+  </div>
+  ${projects.length === 0 ? `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No projects or issues yet</div></div>` :
+    projects.map(p => `
+    <div class="project-item">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start">
+        <div>
+          <div class="project-title">${p.title}</div>
+          <div class="project-meta">${p.description || ''}</div>
+          <span class="project-status status-${(p.status||'active').toLowerCase().replace(' ','')}"> ${p.status || 'Active'}</span>
+        </div>
+        <div style="display:flex; gap:6px">
+          <button class="btn btn-sm" onclick="openEditProject('${p.id}')">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteProject('${p.id}')">Del</button>
+        </div>
+      </div>
+    </div>`).join('')
+  }`;
+}
+
+function renderFinancialsTab(c) {
+  const f = c.financial || {};
+  return `
+  <div style="display:flex; justify-content:flex-end; margin-bottom:14px">
+    <button class="btn btn-primary btn-sm" onclick="openEditFinancials('${c.id}')">Edit Financials</button>
+  </div>
+  <div class="financial-grid">
+    <div class="financial-card">
+      <div class="financial-card-title">Monthly Retainer</div>
+      <div class="financial-value">${f.retainer ? '₹' + parseFloat(f.retainer).toLocaleString('en-IN') : '—'}</div>
+      <div class="financial-detail">${f.retainerCurrency || ''} ${f.retainerNotes || ''}</div>
+    </div>
+    <div class="financial-card">
+      <div class="financial-card-title">Equity Stake</div>
+      <div class="financial-value">${f.equity ? f.equity + '%' : '—'}</div>
+      <div class="financial-detail">${f.equityNotes || ''}</div>
+    </div>
+    <div class="financial-card">
+      <div class="financial-card-title">Customer Referral Commission</div>
+      <div class="financial-value">${f.customerRefComm || '—'}</div>
+      <div class="financial-detail">${f.customerRefNotes || ''}</div>
+    </div>
+    <div class="financial-card">
+      <div class="financial-card-title">VC/Angel Referral Commission</div>
+      <div class="financial-value">${f.vcRefComm || '—'}</div>
+      <div class="financial-detail">${f.vcRefNotes || ''}</div>
+    </div>
+  </div>
+  ${f.contractLink ? `<div style="margin-top:16px"><a href="${f.contractLink}" target="_blank" class="btn">📄 View Contract</a></div>` : ''}
+  ${f.notes ? `<div style="margin-top:16px"><div class="section-divider">Financial Notes</div><div style="font-size:14px; line-height:1.7">${f.notes}</div></div>` : ''}
+  `;
+}
+
+// ============================================================
+// MODALS
+// ============================================================
+function openModal(title, bodyHtml, onSave) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modalOverlay';
+  overlay.innerHTML = `
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">${title}</div>
+      <button class="close-btn" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">${bodyHtml}</div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="${onSave}">Save</button>
+    </div>
+  </div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+  document.body.appendChild(overlay);
+}
+
+function closeModal() {
+  const el = document.getElementById('modalOverlay');
+  if (el) el.remove();
+}
+
+// ADD/EDIT COMPANY
+function openAddCompany() {
+  openModal('Add Company', companyForm(), 'saveCompany()');
+}
+function openEditCompany(id) {
+  const c = DB.companies.find(c => c.id === id);
+  if (!c) return;
+  openModal('Edit Company', companyForm(c), `saveCompany('${id}')`);
+}
+
+function companyForm(c = {}) {
+  return `
+  <div class="form-grid">
+    <div class="form-group full"><label class="form-label">Company Name *</label>
+      <input class="form-input" id="f_name" value="${c.name||''}"></div>
+    <div class="form-group full"><label class="form-label">Street Address</label>
+      <input class="form-input" id="f_address" value="${c.address||''}"></div>
+    <div class="form-group"><label class="form-label">City</label>
+      <input class="form-input" id="f_city" value="${c.city||''}"></div>
+    <div class="form-group"><label class="form-label">State / Province</label>
+      <input class="form-input" id="f_state" value="${c.state||''}"></div>
+    <div class="form-group"><label class="form-label">Country</label>
+      <input class="form-input" id="f_country" value="${c.country||''}"></div>
+    <div class="form-group"><label class="form-label">Pincode / ZIP</label>
+      <input class="form-input" id="f_pincode" value="${c.pincode||''}"></div>
+    <div class="form-group"><label class="form-label">Status</label>
+      <select class="form-input" id="f_status">
+        ${['Lead','Prospect','Customer','Rejected'].map(s => `<option ${c.status===s?'selected':''}>${s}</option>`).join('')}
+      </select></div>
+    <div class="form-group"><label class="form-label">Priority</label>
+      <select class="form-input" id="f_priority">
+        <option value="">— Select —</option>
+        ${['Active Focus','Nurturing','On Hold'].map(s => `<option ${c.priority===s?'selected':''}>${s}</option>`).join('')}
+      </select></div>
+    <div class="form-group"><label class="form-label">Industry / Key Business</label>
+      <input class="form-input" id="f_industry" value="${c.industry||''}"></div>
+    <div class="form-group"><label class="form-label">Lead Source</label>
+      <select class="form-input" id="f_leadSource">
+        <option value="">— Select —</option>
+        ${['LinkedIn','Conference','Referral','Inbound','Cold Outreach','Other'].map(s=>`<option ${c.leadSource===s?'selected':''}>${s}</option>`).join('')}
+      </select></div>
+    <div class="form-group"><label class="form-label">Referred By (Person/Company)</label>
+      <input class="form-input" id="f_referredBy" value="${c.referredBy||''}"></div>
+    <div class="form-group"><label class="form-label">First Contact Date</label>
+      <input class="form-input" type="date" id="f_firstContact" value="${c.firstContact||''}"></div>
+    <div class="form-group"><label class="form-label">Conversion / Rejection Date</label>
+      <input class="form-input" type="date" id="f_conversionDate" value="${c.conversionDate||''}"></div>
+    <div class="form-group"><label class="form-label">Next Meeting Date</label>
+      <input class="form-input" type="date" id="f_nextMeeting" value="${c.nextMeeting||''}"></div>
+    <div class="form-group"><label class="form-label">Next Meeting Note</label>
+      <input class="form-input" id="f_nextMeetingNote" value="${c.nextMeetingNote||''}"></div>
+    <div class="form-group full"><label class="form-label">Next Action</label>
+      <input class="form-input" id="f_nextAction" value="${c.nextAction||''}" placeholder="e.g. Send proposal, Schedule call..."></div>
+    <div class="form-group full"><label class="form-label">Website URL</label>
+      <input class="form-input" id="f_website" value="${c.website||''}" placeholder="https://..."></div>
+    <div class="form-group full"><label class="form-label">NotebookLM Link</label>
+      <input class="form-input" id="f_notebookLM" value="${c.notebookLM||''}" placeholder="https://notebooklm.google.com/..."></div>
+    <div class="form-group full"><label class="form-label">Tags (comma-separated)</label>
+      <input class="form-input" id="f_tags" value="${(c.tags||[]).join(', ')}" placeholder="GCC, AI, SaaS..."></div>
+    <div class="form-group full"><label class="form-label">About the Company</label>
+      <textarea class="form-input" id="f_description" rows="4">${c.description||''}</textarea></div>
+  </div>`;
+}
+
+function saveCompany(id) {
+  const name = document.getElementById('f_name').value.trim();
+  if (!name) { showToast('Company name is required'); return; }
+
+  const data = {
+    name, status: document.getElementById('f_status').value,
+    priority: document.getElementById('f_priority').value,
+    address: document.getElementById('f_address').value,
+    city: document.getElementById('f_city').value,
+    state: document.getElementById('f_state').value,
+    country: document.getElementById('f_country').value,
+    pincode: document.getElementById('f_pincode').value,
+    industry: document.getElementById('f_industry').value,
+    leadSource: document.getElementById('f_leadSource').value,
+    referredBy: document.getElementById('f_referredBy').value,
+    firstContact: document.getElementById('f_firstContact').value,
+    conversionDate: document.getElementById('f_conversionDate').value,
+    nextMeeting: document.getElementById('f_nextMeeting').value,
+    nextMeetingNote: document.getElementById('f_nextMeetingNote').value,
+    nextAction: document.getElementById('f_nextAction').value,
+    website: document.getElementById('f_website').value,
+    notebookLM: document.getElementById('f_notebookLM').value,
+    description: document.getElementById('f_description').value,
+    tags: document.getElementById('f_tags').value.split(',').map(t=>t.trim()).filter(Boolean),
+  };
+
+  if (id) {
+    const idx = DB.companies.findIndex(c => c.id === id);
+    if (idx >= 0) { data.id = id; data.financial = DB.companies[idx].financial; DB.companies[idx] = data; }
+  } else {
+    data.id = genId();
+    data.createdAt = new Date().toISOString();
+    DB.companies.push(data);
+  }
+
+  saveDB();
+  closeModal();
+  showToast(id ? 'Company updated' : 'Company added');
+
+  if (currentPage === 'company') showPage('company', id || data.id);
+  else showPage('companies');
+}
+
+function deleteCompany(id) {
+  if (!confirm('Delete this company and all related data?')) return;
+  DB.companies = DB.companies.filter(c => c.id !== id);
+  DB.contacts = DB.contacts.filter(c => c.companyId !== id);
+  DB.interactions = DB.interactions.filter(i => i.companyId !== id);
+  DB.projects = DB.projects.filter(p => p.companyId !== id);
+  saveDB(); showToast('Company deleted'); showPage('companies');
+}
+
+// CONTACTS
+function openAddContact(companyId) { openModal('Add Contact', contactForm(), `saveContact(null,'${companyId}')`); }
+function openEditContact(id) {
+  const ct = DB.contacts.find(c => c.id === id);
+  if (!ct) return;
+  openModal('Edit Contact', contactForm(ct), `saveContact('${id}','${ct.companyId}')`);
+}
+
+function contactForm(ct = {}) {
+  return `
+  <div class="form-grid">
+    <div class="form-group full"><label class="form-label">Full Name *</label>
+      <input class="form-input" id="fc_name" value="${ct.name||''}"></div>
+    <div class="form-group"><label class="form-label">Job Title</label>
+      <input class="form-input" id="fc_title" value="${ct.title||''}"></div>
+    <div class="form-group"><label class="form-label">Email</label>
+      <input class="form-input" type="email" id="fc_email" value="${ct.email||''}"></div>
+    <div class="form-group"><label class="form-label">Phone</label>
+      <input class="form-input" id="fc_phone" value="${ct.phone||''}"></div>
+    <div class="form-group full"><label class="form-label">LinkedIn URL</label>
+      <input class="form-input" id="fc_linkedin" value="${ct.linkedin||''}"></div>
+    <div class="form-group full"><label class="form-label">Notes</label>
+      <textarea class="form-input" id="fc_notes">${ct.notes||''}</textarea></div>
+  </div>`;
+}
+
+function saveContact(id, companyId) {
+  const name = document.getElementById('fc_name').value.trim();
+  if (!name) { showToast('Name is required'); return; }
+  const data = {
+    name, companyId,
+    title: document.getElementById('fc_title').value,
+    email: document.getElementById('fc_email').value,
+    phone: document.getElementById('fc_phone').value,
+    linkedin: document.getElementById('fc_linkedin').value,
+    notes: document.getElementById('fc_notes').value,
+  };
+  if (id) { const idx = DB.contacts.findIndex(c => c.id === id); data.id = id; if (idx>=0) DB.contacts[idx] = data; }
+  else { data.id = genId(); DB.contacts.push(data); }
+  saveDB(); closeModal(); showToast(id ? 'Contact updated' : 'Contact added');
+  switchTab('contacts', companyId);
+}
+
+function deleteContact(id) {
+  const ct = DB.contacts.find(c => c.id === id);
+  if (!confirm('Delete this contact?')) return;
+  DB.contacts = DB.contacts.filter(c => c.id !== id);
+  saveDB(); showToast('Contact deleted');
+  if (ct) switchTab('contacts', ct.companyId);
+}
+
+// INTERACTIONS
+function openAddInteraction(companyId) { openModal('Log Interaction', interactionForm(), `saveInteraction(null,'${companyId}')`); }
+
+function interactionForm(i = {}) {
+  const today = new Date().toISOString().split('T')[0];
+  return `
+  <div class="form-grid">
+    <div class="form-group"><label class="form-label">Type *</label>
+      <select class="form-input" id="fi_type">
+        ${['Call','Email','Meeting','WhatsApp','Other'].map(t => `<option ${i.type===t?'selected':''}>${t}</option>`).join('')}
+      </select></div>
+    <div class="form-group"><label class="form-label">Date *</label>
+      <input class="form-input" type="date" id="fi_date" value="${i.date||today}"></div>
+    <div class="form-group"><label class="form-label">Time</label>
+      <input class="form-input" type="time" id="fi_time" value="${i.time||''}"></div>
+    <div class="form-group full"><label class="form-label">Notes</label>
+      <textarea class="form-input" id="fi_notes" rows="5">${i.notes||''}</textarea></div>
+  </div>`;
+}
+
+function saveInteraction(id, companyId) {
+  const data = {
+    companyId,
+    type: document.getElementById('fi_type').value,
+    date: document.getElementById('fi_date').value,
+    time: document.getElementById('fi_time').value,
+    notes: document.getElementById('fi_notes').value,
+  };
+  if (id) { const idx = DB.interactions.findIndex(i => i.id === id); data.id = id; if (idx>=0) DB.interactions[idx] = data; }
+  else { data.id = genId(); DB.interactions.push(data); }
+  saveDB(); closeModal(); showToast('Interaction logged');
+  switchTab('interactions', companyId);
+}
+
+function deleteInteraction(id) {
+  const i = DB.interactions.find(x => x.id === id);
+  if (!confirm('Delete this interaction?')) return;
+  DB.interactions = DB.interactions.filter(x => x.id !== id);
+  saveDB(); showToast('Interaction deleted');
+  if (i) switchTab('interactions', i.companyId);
+}
+
+// PROJECTS
+function openAddProject(companyId) { openModal('Add Project / Issue', projectForm(), `saveProject(null,'${companyId}')`); }
+function openEditProject(id) {
+  const p = DB.projects.find(p => p.id === id);
+  if (!p) return;
+  openModal('Edit Project', projectForm(p), `saveProject('${id}','${p.companyId}')`);
+}
+
+function projectForm(p = {}) {
+  return `
+  <div class="form-grid">
+    <div class="form-group full"><label class="form-label">Project / Issue Title *</label>
+      <input class="form-input" id="fp_title" value="${p.title||''}"></div>
+    <div class="form-group"><label class="form-label">Status</label>
+      <select class="form-input" id="fp_status">
+        ${['Active','Pending','Completed','On Hold'].map(s => `<option ${p.status===s?'selected':''}>${s}</option>`).join('')}
+      </select></div>
+    <div class="form-group full"><label class="form-label">Description / Notes</label>
+      <textarea class="form-input" id="fp_description" rows="4">${p.description||''}</textarea></div>
+  </div>`;
+}
+
+function saveProject(id, companyId) {
+  const title = document.getElementById('fp_title').value.trim();
+  if (!title) { showToast('Title is required'); return; }
+  const data = {
+    companyId, title,
+    status: document.getElementById('fp_status').value,
+    description: document.getElementById('fp_description').value,
+  };
+  if (id) { const idx = DB.projects.findIndex(p => p.id === id); data.id = id; if (idx>=0) DB.projects[idx] = data; }
+  else { data.id = genId(); DB.projects.push(data); }
+  saveDB(); closeModal(); showToast(id ? 'Project updated' : 'Project added');
+  switchTab('projects', companyId);
+}
+
+function deleteProject(id) {
+  const p = DB.projects.find(x => x.id === id);
+  if (!confirm('Delete this project?')) return;
+  DB.projects = DB.projects.filter(x => x.id !== id);
+  saveDB(); showToast('Project deleted');
+  if (p) switchTab('projects', p.companyId);
+}
+
+// FINANCIALS
+function openEditFinancials(companyId) {
+  const c = DB.companies.find(c => c.id === companyId);
+  const f = c?.financial || {};
+  const body = `
+  <div class="form-grid">
+    <div class="form-group"><label class="form-label">Monthly Retainer Amount</label>
+      <input class="form-input" id="ff_retainer" value="${f.retainer||''}" placeholder="e.g. 150000"></div>
+    <div class="form-group"><label class="form-label">Currency</label>
+      <select class="form-input" id="ff_retainerCurrency">
+        ${['INR','USD','EUR','GBP','AED'].map(c => `<option ${f.retainerCurrency===c?'selected':''}>${c}</option>`).join('')}
+      </select></div>
+    <div class="form-group full"><label class="form-label">Retainer Notes</label>
+      <input class="form-input" id="ff_retainerNotes" value="${f.retainerNotes||''}"></div>
+    <div class="form-group"><label class="form-label">Equity % (if any)</label>
+      <input class="form-input" id="ff_equity" value="${f.equity||''}" placeholder="e.g. 1.5"></div>
+    <div class="form-group"><label class="form-label">Equity Notes</label>
+      <input class="form-input" id="ff_equityNotes" value="${f.equityNotes||''}"></div>
+    <div class="form-group full"><label class="form-label">Customer Referral Commission</label>
+      <input class="form-input" id="ff_customerRefComm" value="${f.customerRefComm||''}" placeholder="e.g. 10% of first year revenue"></div>
+    <div class="form-group full"><label class="form-label">Customer Referral Notes</label>
+      <input class="form-input" id="ff_customerRefNotes" value="${f.customerRefNotes||''}"></div>
+    <div class="form-group full"><label class="form-label">VC/Angel Referral Commission</label>
+      <input class="form-input" id="ff_vcRefComm" value="${f.vcRefComm||''}" placeholder="e.g. 2% of funding amount"></div>
+    <div class="form-group full"><label class="form-label">VC/Angel Referral Notes</label>
+      <input class="form-input" id="ff_vcRefNotes" value="${f.vcRefNotes||''}"></div>
+    <div class="form-group full"><label class="form-label">Contract Link (Google Drive, etc.)</label>
+      <input class="form-input" id="ff_contractLink" value="${f.contractLink||''}" placeholder="https://..."></div>
+    <div class="form-group full"><label class="form-label">Additional Financial Notes</label>
+      <textarea class="form-input" id="ff_notes">${f.notes||''}</textarea></div>
+  </div>`;
+  openModal('Edit Financials', body, `saveFinancials('${companyId}')`);
+}
+
+function saveFinancials(companyId) {
+  const c = DB.companies.find(c => c.id === companyId);
+  if (!c) return;
+  c.financial = {
+    retainer: document.getElementById('ff_retainer').value,
+    retainerCurrency: document.getElementById('ff_retainerCurrency').value,
+    retainerNotes: document.getElementById('ff_retainerNotes').value,
+    equity: document.getElementById('ff_equity').value,
+    equityNotes: document.getElementById('ff_equityNotes').value,
+    customerRefComm: document.getElementById('ff_customerRefComm').value,
+    customerRefNotes: document.getElementById('ff_customerRefNotes').value,
+    vcRefComm: document.getElementById('ff_vcRefComm').value,
+    vcRefNotes: document.getElementById('ff_vcRefNotes').value,
+    contractLink: document.getElementById('ff_contractLink').value,
+    notes: document.getElementById('ff_notes').value,
+  };
+  saveDB(); closeModal(); showToast('Financials saved');
+  switchTab('financials', companyId);
+}
+
+// ============================================================
+// SETTINGS PAGE
+// ============================================================
+function renderSettings() {
+  return `
+  <div class="topbar"><div class="page-title">Settings</div></div>
+  <div class="content">
+    <div class="section-card">
+      <div class="card-header"><div class="card-title">Google Sheets Sync</div></div>
+      <div class="card-body">
+        <p style="font-size:13px; color:var(--text2); margin-bottom:16px; line-height:1.6">
+          Enter your Google Apps Script Web App URL below to enable automatic sync to Google Sheets.
+          See the setup guide for instructions on creating your Apps Script.
+        </p>
+        <div class="form-group" style="max-width:500px">
+          <label class="form-label">Apps Script Web App URL</label>
+          <input class="form-input" id="scriptUrlInput" value="${DB.settings.scriptUrl||''}"
+            placeholder="https://script.google.com/macros/s/.../exec">
+        </div>
+        <div style="margin-top:14px; display:flex; gap:10px">
+          <button class="btn btn-primary" onclick="saveScriptUrl()">Save URL</button>
+          <button class="btn" onclick="loadFromSheets()">Load from Sheets</button>
+          <button class="btn" onclick="syncToSheets()">Push to Sheets</button>
+        </div>
+        ${DB.settings.lastSync ? `<p style="font-size:12px; color:var(--text3); margin-top:10px">Last sync: ${new Date(DB.settings.lastSync).toLocaleString()}</p>` : ''}
+      </div>
+    </div>
+    <div class="section-card" style="margin-top:20px">
+      <div class="card-header"><div class="card-title">Data Management</div></div>
+      <div class="card-body">
+        <div style="display:flex; gap:10px; flex-wrap:wrap">
+          <button class="btn" onclick="exportToExcel()">⬇ Export to Excel</button>
+          <button class="btn" onclick="exportJSON()">⬇ Export JSON Backup</button>
+          <button class="btn" onclick="importJSON()">⬆ Import JSON Backup</button>
+          <input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(event)">
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function saveScriptUrl() {
+  DB.settings.scriptUrl = document.getElementById('scriptUrlInput').value.trim();
+  saveDB(); showToast('Script URL saved');
+  if (DB.settings.scriptUrl) { setSyncStatus('pending', 'Connecting...'); syncToSheets(); }
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+function exportToExcel() {
+  if (typeof XLSX === 'undefined') { showToast('Export library loading, try again...'); return; }
+
+  const wb = XLSX.utils.book_new();
+
+  // Companies sheet
+  const compHeaders = ['Name','Status','Priority','Street','City','State','Country','Pincode','Industry',
+    'Lead Source','Referred By','First Contact','Conversion Date','Next Meeting','Next Action',
+    'Website','NotebookLM','Tags','Description',
+    'Retainer Amount','Retainer Currency','Equity %','Customer Ref Comm','VC Ref Comm'];
+
+  const compRows = DB.companies.map(c => {
+    const f = c.financial || {};
+    return [c.name, c.status, c.priority, c.address, c.city, c.state, c.country, c.pincode,
+      c.industry, c.leadSource, c.referredBy, c.firstContact, c.conversionDate,
+      c.nextMeeting, c.nextAction, c.website, c.notebookLM, (c.tags||[]).join(', '), c.description,
+      f.retainer, f.retainerCurrency, f.equity, f.customerRefComm, f.vcRefComm];
+  });
+  const compWS = XLSX.utils.aoa_to_sheet([compHeaders, ...compRows]);
+  XLSX.utils.book_append_sheet(wb, compWS, 'Companies');
+
+  // Contacts sheet
+  const ctHeaders = ['Company','Contact Name','Title','Email','Phone','LinkedIn','Notes'];
+  const ctRows = DB.contacts.map(ct => {
+    const co = DB.companies.find(c => c.id === ct.companyId);
+    return [co?.name||'', ct.name, ct.title, ct.email, ct.phone, ct.linkedin, ct.notes];
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([ctHeaders, ...ctRows]), 'Contacts');
+
+  // Interactions sheet
+  const intHeaders = ['Company','Date','Time','Type','Notes'];
+  const intRows = DB.interactions.map(i => {
+    const co = DB.companies.find(c => c.id === i.companyId);
+    return [co?.name||'', i.date, i.time, i.type, i.notes];
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([intHeaders, ...intRows]), 'Interactions');
+
+  // Projects sheet
+  const prjHeaders = ['Company','Project/Issue','Status','Description'];
+  const prjRows = DB.projects.map(p => {
+    const co = DB.companies.find(c => c.id === p.companyId);
+    return [co?.name||'', p.title, p.status, p.description];
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([prjHeaders, ...prjRows]), 'Projects');
+
+  XLSX.writeFile(wb, `SaarAdvisory_CRM_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Excel file downloaded!');
+}
+
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(DB, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `SaarCRM_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  showToast('JSON backup downloaded');
+}
+
+function importJSON() { document.getElementById('importFile')?.click(); }
+
+function handleImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (data.companies) {
+        const url = DB.settings.scriptUrl;
+        DB = data;
+        DB.settings = DB.settings || {};
+        DB.settings.scriptUrl = url;
+        localStorage.setItem('saar_crm_db', JSON.stringify(DB));
+        showToast('Data imported successfully!');
+        showPage(currentPage);
+      } else { showToast('Invalid backup file'); }
+    } catch { showToast('Error reading file'); }
+  };
+  reader.readAsText(file);
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function formatDate(d) {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }); }
+  catch { return d; }
+}
+
+function typeColor(type) {
+  return { Call: 'var(--info)', Email: '#9c27b0', Meeting: 'var(--success)', WhatsApp: '#4caf50', Other: 'var(--text3)' }[type] || 'var(--text2)';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+loadDB();
+if (DB.settings.scriptUrl) {
+  setSyncStatus('ok', 'Connected');
+} else {
+  setSyncStatus('error', 'Not configured');
+}
+showPage('dashboard');
+</script>
+</body>
+</html>
