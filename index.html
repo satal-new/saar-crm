@@ -701,6 +701,14 @@
 // ============================================================
 // DATA LAYER
 // ============================================================
+// ============================================================
+// SCRIPT URL CONFIGURATION
+// ============================================================
+// Paste your Apps Script URL here — this ensures ALL devices
+// can find the backend without manual configuration.
+// This is safe: the URL is useless without the password + whitelisted device.
+const HARDCODED_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxfzZAm2fKanhXkz-8vMxpVCeTtrEGBFD6h0cxZT7aXZl5H5OiMXGzMwTLVQkArcfVG/exec';
+
 let DB = {
   companies: [],
   contacts: [],
@@ -714,7 +722,22 @@ function loadDB() {
     const saved = localStorage.getItem('saar_crm_db');
     if (saved) DB = JSON.parse(saved);
     if (!DB.settings) DB.settings = { scriptUrl: '', lastSync: null };
+    // If no URL in localStorage, use the hardcoded one
+    if (!DB.settings.scriptUrl && HARDCODED_SCRIPT_URL && !HARDCODED_SCRIPT_URL.includes('YOUR_APPS')) {
+      DB.settings.scriptUrl = HARDCODED_SCRIPT_URL;
+    }
   } catch(e) {}
+}
+
+// Always returns the best available Script URL
+function getScriptUrl() {
+  if (DB.settings.scriptUrl && !DB.settings.scriptUrl.includes('YOUR_APPS')) {
+    return DB.settings.scriptUrl;
+  }
+  if (HARDCODED_SCRIPT_URL && !HARDCODED_SCRIPT_URL.includes('YOUR_APPS')) {
+    return HARDCODED_SCRIPT_URL;
+  }
+  return null;
 }
 
 function saveDB() {
@@ -1839,23 +1862,26 @@ function submitAuth() {
   _authPwdOk = true;
   err.textContent = '';
 
-  if (!DB.settings.scriptUrl) {
-    // No Sheet configured — fall back to local-only, auto-admit
-    grantSession(); unlockApp(); return;
+  var scriptUrl = getScriptUrl();
+  if (!scriptUrl) {
+    // No Sheet URL anywhere — block access
+    showAuthStep('authStepLogin');
+    err.textContent = 'CRM not configured. Contact the administrator.';
+    return;
   }
 
   // Check device against Sheet whitelist
   showAuthStep('authStepChecking');
-  const fp = getDeviceFingerprint();
-  fetch(DB.settings.scriptUrl + '?action=checkDevice&fingerprint=' + fp)
-    .then(r => r.json())
-    .then(data => {
+  var fp = getDeviceFingerprint();
+  fetch(scriptUrl + '?action=checkDevice&fingerprint=' + fp)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
       if (data.isFirstRun) {
         // No devices at all yet — auto-register as Owner
-        return fetch(DB.settings.scriptUrl, {
+        return fetch(scriptUrl, {
           method: 'POST',
           body: JSON.stringify({ action: 'registerDevice', fingerprint: fp, name: 'Owner Device' })
-        }).then(() => { grantSession(); unlockApp(); });
+        }).then(function() { grantSession(); unlockApp(); });
       } else if (data.allowed) {
         grantSession(); unlockApp();
       } else {
@@ -1864,13 +1890,10 @@ function submitAuth() {
         showAuthStep('authStepBlocked');
       }
     })
-    .catch(function(err) {
-      // Show the actual error so we can diagnose
+    .catch(function() {
+      // Network error — block, don't admit
       showAuthStep('authStepLogin');
-      document.getElementById('authError').textContent = 'Sheet error: ' + (err.message || err.toString()) + ' — tap Continue to enter anyway';
-      document.getElementById('authInput').value = getStoredPassword();
-      // Add a bypass button for diagnostics
-      _authPwdOk = true;
+      err.textContent = 'Connection error. Please check internet and try again.';
     });
 }
 
@@ -1881,13 +1904,16 @@ function registerDevice() {
   if (!name) { document.getElementById('registerError').textContent = 'Please enter a device name.'; return; }
   const fp = getDeviceFingerprint();
   showAuthStep('authStepChecking');
-  fetch(DB.settings.scriptUrl, {
+  fetch(getScriptUrl(), {
     method: 'POST',
     body: JSON.stringify({ action: 'registerDevice', fingerprint: fp, name: name })
   })
-  .then(r => r.json())
-  .then(() => { grantSession(); unlockApp(); })
-  .catch(() => { grantSession(); unlockApp(); });
+  .then(function(r) { return r.json(); })
+  .then(function() { grantSession(); unlockApp(); })
+  .catch(function() {
+    showAuthStep('authStepLogin');
+    document.getElementById('registerError').textContent = 'Connection error. Please try again.';
+  });
 }
 
 function logout() {
@@ -1906,8 +1932,9 @@ function forceRelogin() {
 
 // --- Device management (Settings page) ---
 function loadDevicesFromSheet(callback) {
-  if (!DB.settings.scriptUrl) { callback([]); return; }
-  fetch(DB.settings.scriptUrl + '?action=getDevices')
+  var scriptUrl = getScriptUrl();
+  if (!scriptUrl) { callback([]); return; }
+  fetch(scriptUrl + '?action=getDevices')
     .then(r => r.json())
     .then(data => callback(data.devices || []))
     .catch(() => callback([]));
@@ -1939,7 +1966,7 @@ function renderDeviceManager() {
 
 function removeDevice(fingerprint) {
   if (!confirm('Remove this device from the whitelist?')) return;
-  fetch(DB.settings.scriptUrl, {
+  fetch(getScriptUrl(), {
     method: 'POST',
     body: JSON.stringify({ action: 'removeDevice', fingerprint: fingerprint })
   })
@@ -1961,7 +1988,7 @@ function saveManualDevice() {
   const fp = document.getElementById('md_fp').value.trim();
   const name = document.getElementById('md_name').value.trim();
   if (!fp || !name) { showToast('Both fields are required'); return; }
-  fetch(DB.settings.scriptUrl, {
+  fetch(getScriptUrl(), {
     method: 'POST',
     body: JSON.stringify({ action: 'registerDevice', fingerprint: fp, name: name })
   })
@@ -2016,16 +2043,22 @@ function initAuth() {
 
   // Has a valid session — but if Sheet is configured, still verify
   // device is actually on the whitelist (catches Safari sessionStorage quirks)
-  if (!DB.settings.scriptUrl) {
-    // No Sheet — trust the session
-    unlockApp();
+  var scriptUrl = getScriptUrl();
+  if (!scriptUrl) {
+    // No Sheet URL — block, don't trust session
+    sessionStorage.removeItem(SESSION_KEY);
+    showAuthStep('authStepLogin');
+    setTimeout(function() {
+      var el = document.getElementById('authInput');
+      if (el) el.focus();
+    }, 100);
     return;
   }
 
   // Silently verify device against Sheet whitelist
   showAuthStep('authStepChecking');
   var fp = getDeviceFingerprint();
-  fetch(DB.settings.scriptUrl + '?action=checkDevice&fingerprint=' + fp)
+  fetch(scriptUrl + '?action=checkDevice&fingerprint=' + fp)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.isFirstRun || data.allowed) {
@@ -2047,11 +2080,11 @@ function initAuth() {
         }, 100);
       }
     })
-    .catch(function(err) {
-      // Show diagnostic error rather than silently letting in
+    .catch(function() {
+      // Network error — block access, show login
       sessionStorage.removeItem(SESSION_KEY);
       showAuthStep('authStepLogin');
-      document.getElementById('authError').textContent = 'Connection error: ' + (err.message || 'unknown') + '. Enter password to retry.';
+      document.getElementById('authError').textContent = 'Connection error. Please check internet and try again.';
       setTimeout(function() {
         var el = document.getElementById('authInput');
         if (el) el.focus();
