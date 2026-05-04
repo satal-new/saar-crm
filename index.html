@@ -1750,9 +1750,12 @@ function renderSettings() {
       </div>
     </div>
     <div class="section-card" style="margin-top:20px">
-      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <div class="card-title">Whitelisted Devices</div>
-        <button class="btn btn-sm btn-primary" onclick="addDeviceManually()">+ Add Device</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" onclick="pullAndShowDevices()">&#8635; Sync from Sheet</button>
+          <button class="btn btn-sm btn-primary" onclick="addDeviceManually()">+ Add Device</button>
+        </div>
       </div>
       <div class="card-body">
         <p style="font-size:13px; color:var(--text2); margin-bottom:16px; line-height:1.6">
@@ -1909,62 +1912,29 @@ function showToast(msg) {
 }
 
 // ============================================================
-// DEVICE FINGERPRINTING & AUTH (v2 — Sheet-synced whitelist)
 // ============================================================
+// DEVICE FINGERPRINTING & AUTH (v3 — reliable local whitelist)
+// ============================================================
+// Security model:
+//   Gate 1: Correct password required
+//   Gate 2: Device must be in local whitelist
+//   Sync:   Whitelist syncs TO Sheet after login (not blocking)
+//           Sheet whitelist loads into local on demand from Settings
+// ============================================================
+
 const DEFAULT_PASSWORD = 'Saar2025!';
 const SESSION_KEY = 'saar_crm_session';
 const PWD_KEY = 'saar_crm_pwd';
+const DEVICES_KEY = 'saar_crm_devices';
 const ADMIN_PIN = '2406';
 const ADMIN_SESSION_KEY = 'saar_crm_admin';
 
+// --- Password ---
 function getStoredPassword() {
   return localStorage.getItem(PWD_KEY) || DEFAULT_PASSWORD;
 }
 
-function isAdminVerified() {
-  return sessionStorage.getItem(ADMIN_SESSION_KEY) === hashString(ADMIN_PIN + 'saar_admin');
-}
-
-function grantAdminSession() {
-  sessionStorage.setItem(ADMIN_SESSION_KEY, hashString(ADMIN_PIN + 'saar_admin'));
-}
-
-function requireAdminPIN(onSuccess) {
-  if (isAdminVerified()) { onSuccess(); return; }
-  const body = '<div class="form-grid single">' +
-    '<div class="form-group">' +
-    '<label class="form-label">Admin PIN</label>' +
-    '<input class="form-input" type="password" id="adminPinInput" placeholder="Enter PIN" ' +
-    'style="letter-spacing:4px;font-size:18px" maxlength="10" ' +
-    'onkeydown="if(event.key==='Enter') checkAdminPIN()">' +
-    '<div id="adminPinError" style="color:var(--danger);font-size:12px;margin-top:6px;min-height:16px"></div>' +
-    '<div style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5">' +
-    'This area is restricted to the CRM administrator.</div>' +
-    '</div></div>';
-  openModal('Admin Verification', body, 'checkAdminPIN()');
-  setTimeout(function() {
-    var el = document.getElementById('adminPinInput');
-    if (el) el.focus();
-  }, 100);
-  // Store callback for after PIN verification
-  window._adminCallback = onSuccess;
-}
-
-function checkAdminPIN() {
-  var input = document.getElementById('adminPinInput');
-  var errEl = document.getElementById('adminPinError');
-  if (!input) return;
-  if (input.value === ADMIN_PIN) {
-    grantAdminSession();
-    closeModal();
-    if (window._adminCallback) { window._adminCallback(); window._adminCallback = null; }
-  } else {
-    errEl.textContent = 'Incorrect PIN. Please try again.';
-    input.value = '';
-    input.focus();
-  }
-}
-
+// --- Hashing ---
 function hashString(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -1975,6 +1945,7 @@ function hashString(str) {
   return Math.abs(hash).toString(36);
 }
 
+// --- Device fingerprint ---
 function getCanvasFingerprint() {
   try {
     const c = document.createElement('canvas');
@@ -2000,6 +1971,50 @@ function getDeviceFingerprint() {
   return hashString(signals);
 }
 
+// --- Local whitelist (encrypted) ---
+function encryptData(data, password) {
+  const json = JSON.stringify(data);
+  const key = password + 'saar_salt_9x!';
+  let out = '';
+  for (let i = 0; i < json.length; i++) {
+    out += String.fromCharCode(json.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+  }
+  return btoa(out);
+}
+
+function decryptData(encrypted, password) {
+  try {
+    const raw = atob(encrypted);
+    const key = password + 'saar_salt_9x!';
+    let out = '';
+    for (let i = 0; i < raw.length; i++) {
+      out += String.fromCharCode(raw.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return JSON.parse(out);
+  } catch(e) { return null; }
+}
+
+function loadLocalDevices() {
+  const enc = localStorage.getItem(DEVICES_KEY);
+  if (!enc) return [];
+  return decryptData(enc, getStoredPassword()) || [];
+}
+
+function saveLocalDevices(devices) {
+  localStorage.setItem(DEVICES_KEY, encryptData(devices, getStoredPassword()));
+  // Sync to Sheet in background (non-blocking)
+  syncDevicesToSheet(devices);
+}
+
+function isDeviceWhitelisted(fp) {
+  return loadLocalDevices().some(function(d) { return d.fingerprint === fp; });
+}
+
+function isFirstRun() {
+  return !localStorage.getItem(DEVICES_KEY);
+}
+
+// --- Session ---
 function isAuthenticated() {
   const session = sessionStorage.getItem(SESSION_KEY);
   return session === hashString(getStoredPassword() + getDeviceFingerprint());
@@ -2013,19 +2028,20 @@ function unlockApp() {
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('sidebar').style.display = 'flex';
   document.getElementById('main').style.display = 'block';
+  document.getElementById('bottomNav').style.display = 'flex';
   showPage('dashboard');
 }
 
 function showAuthStep(step) {
-  ['authStepLogin','authStepRegister','authStepBlocked','authStepChecking'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = id === step ? 'block' : 'none';
+  ['authStepLogin','authStepRegister','authStepBlocked','authStepChecking'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = (id === step) ? 'block' : 'none';
   });
 }
 
+// --- Auth flow ---
 let _authPwdOk = false;
 
-// Called when user clicks Continue on the password screen
 function submitAuth() {
   const input = document.getElementById('authInput').value;
   const err = document.getElementById('authError');
@@ -2038,59 +2054,37 @@ function submitAuth() {
   }
   _authPwdOk = true;
   err.textContent = '';
+  const fp = getDeviceFingerprint();
 
-  var scriptUrl = getScriptUrl();
-  if (!scriptUrl) {
-    // No Sheet URL anywhere — block access
-    showAuthStep('authStepLogin');
-    err.textContent = 'CRM not configured. Contact the administrator.';
-    return;
+  if (isFirstRun()) {
+    // First ever login — register as owner
+    const devices = [{ fingerprint: fp, name: 'Owner Device', addedAt: new Date().toISOString() }];
+    saveLocalDevices(devices);
+    grantSession();
+    unlockApp();
+  } else if (isDeviceWhitelisted(fp)) {
+    grantSession();
+    unlockApp();
+  } else {
+    // Password correct but device not whitelisted
+    showAuthStep('authStepRegister');
+    setTimeout(function() {
+      var el = document.getElementById('deviceNameInput');
+      if (el) el.focus();
+    }, 100);
   }
-
-  // Check device against Sheet whitelist
-  showAuthStep('authStepChecking');
-  var fp = getDeviceFingerprint();
-  fetchWithTimeout(scriptUrl + '?action=checkDevice&fingerprint=' + fp)
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.isFirstRun) {
-        // No devices at all yet — auto-register as Owner
-        return fetchWithTimeout(scriptUrl, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'registerDevice', fingerprint: fp, name: 'Owner Device' })
-        }).then(function() { grantSession(); unlockApp(); });
-      } else if (data.allowed) {
-        grantSession(); unlockApp();
-      } else {
-        // Device not whitelisted — show blocked screen with ID
-        document.getElementById('blockedDeviceId').textContent = fp;
-        showAuthStep('authStepBlocked');
-      }
-    })
-    .catch(function() {
-      // Network error — block, don't admit
-      showAuthStep('authStepLogin');
-      err.textContent = 'Connection error. Please check internet and try again.';
-    });
 }
 
-// Called when user names and registers their new device
 function registerDevice() {
   if (!_authPwdOk) return;
   const name = document.getElementById('deviceNameInput').value.trim();
   if (!name) { document.getElementById('registerError').textContent = 'Please enter a device name.'; return; }
   const fp = getDeviceFingerprint();
-  showAuthStep('authStepChecking');
-  fetchWithTimeout(getScriptUrl(), {
-    method: 'POST',
-    body: JSON.stringify({ action: 'registerDevice', fingerprint: fp, name: name })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function() { grantSession(); unlockApp(); })
-  .catch(function() {
-    showAuthStep('authStepLogin');
-    document.getElementById('registerError').textContent = 'Connection error. Please try again.';
-  });
+  const devices = loadLocalDevices();
+  devices.push({ fingerprint: fp, name: name, addedAt: new Date().toISOString() });
+  saveLocalDevices(devices);
+  grantSession();
+  unlockApp();
 }
 
 function logout() {
@@ -2100,56 +2094,91 @@ function logout() {
 }
 
 function forceRelogin() {
-  // Clears session so next load goes through full Sheet-based device check
   sessionStorage.removeItem(SESSION_KEY);
   _authPwdOk = false;
   showToast('Session cleared — reloading...');
-  setTimeout(() => location.reload(), 1000);
+  setTimeout(function() { location.reload(); }, 1000);
 }
 
-// --- Device management (Settings page) ---
-function loadDevicesFromSheet(callback) {
-  var scriptUrl = getScriptUrl();
-  if (!scriptUrl) { callback([]); return; }
-  fetchWithTimeout(scriptUrl + '?action=getDevices')
-    .then(r => r.json())
-    .then(data => callback(data.devices || []))
-    .catch(() => callback([]));
+// --- Background Sheet sync for devices (non-blocking) ---
+function syncDevicesToSheet(devices) {
+  var url = getScriptUrl();
+  if (!url) return;
+  fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'saveDevices', devices: devices })
+  }).catch(function() {}); // Silent — never blocks auth
+}
+
+// Pull whitelist FROM Sheet into local storage (called from Settings)
+function pullDevicesFromSheet(callback) {
+  var url = getScriptUrl();
+  if (!url) { if (callback) callback(false, 'No Script URL configured'); return; }
+  var timeout = setTimeout(function() {
+    if (callback) callback(false, 'Request timed out');
+  }, 8000);
+  fetch(url + '?action=getDevices')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      clearTimeout(timeout);
+      if (data.devices && data.devices.length > 0) {
+        saveLocalDevices(data.devices);
+        if (callback) callback(true, data.devices);
+      } else {
+        if (callback) callback(false, 'No devices found in Sheet');
+      }
+    })
+    .catch(function(e) {
+      clearTimeout(timeout);
+      if (callback) callback(false, e.message || 'Network error');
+    });
+}
+
+// --- Device manager (Settings page) ---
+function pullAndShowDevices() {
+  var container = document.getElementById('deviceManagerList');
+  if (container) container.innerHTML = '<p style="color:var(--text3);font-size:13px">Syncing from Sheet...</p>';
+  pullDevicesFromSheet(function(ok, result) {
+    if (ok) {
+      showToast('Devices synced from Sheet!');
+      renderDeviceManager();
+    } else {
+      showToast('Sync failed: ' + result);
+      renderDeviceManager();
+    }
+  });
 }
 
 function renderDeviceManager() {
   const container = document.getElementById('deviceManagerList');
   if (!container) return;
-  container.innerHTML = '<p style="color:var(--text3);font-size:13px">Loading devices...</p>';
-  loadDevicesFromSheet(function(devices) {
-    const fp = getDeviceFingerprint();
-    if (devices.length === 0) {
-      container.innerHTML = '<p style="color:var(--text3);font-size:13px">No devices registered yet.</p>';
-      return;
-    }
-    container.innerHTML = devices.map(function(d, i) {
-      const isCurrent = d.fingerprint === fp;
-      const badge = isCurrent ? ' <span style="background:var(--success-bg);color:var(--success);font-size:11px;padding:2px 7px;border-radius:4px;font-weight:500">This device</span>' : '';
-      const action = isCurrent
-        ? '<span style="font-size:12px;color:var(--text3)">Current</span>'
-        : '<button class="btn btn-sm btn-danger" onclick="removeDevice(\'' + d.fingerprint + '\')">Remove</button>';
-      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--surface3)">' +
-        '<div><div style="font-weight:500;font-size:14px">' + d.name + badge + '</div>' +
-        '<div style="font-size:12px;color:var(--text3);margin-top:2px">Added ' + formatDate(d.addedAt) + ' &middot; ID: ' + d.fingerprint + '</div></div>' +
-        action + '</div>';
-    }).join('');
-  });
+  const devices = loadLocalDevices();
+  const fp = getDeviceFingerprint();
+  if (devices.length === 0) {
+    container.innerHTML = '<p style="color:var(--text3);font-size:13px">No devices registered yet.</p>';
+    return;
+  }
+  container.innerHTML = devices.map(function(d, i) {
+    const isCurrent = d.fingerprint === fp;
+    const badge = isCurrent ? ' <span style="background:var(--success-bg);color:var(--success);font-size:11px;padding:2px 7px;border-radius:4px;font-weight:500">This device</span>' : '';
+    const action = isCurrent
+      ? '<span style="font-size:12px;color:var(--text3)">Current</span>'
+      : '<button class="btn btn-sm btn-danger" onclick="removeDevice(' + i + ')">Remove</button>';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--surface3)">' +
+      '<div><div style="font-weight:500;font-size:14px">' + d.name + badge + '</div>' +
+      '<div style="font-size:12px;color:var(--text3);margin-top:2px">Added ' + formatDate(d.addedAt) + ' &middot; ID: ' + d.fingerprint + '</div></div>' +
+      action + '</div>';
+  }).join('');
 }
 
-function removeDevice(fingerprint) {
+function removeDevice(index) {
   requireAdminPIN(function() {
-    if (!confirm('Remove this device from the whitelist?')) return;
-    fetch(getScriptUrl(), {
-      method: 'POST',
-      body: JSON.stringify({ action: 'removeDevice', fingerprint: fingerprint })
-    })
-    .then(function() { showToast('Device removed'); showPage('settings'); })
-    .catch(function() { showToast('Error removing device'); });
+    const devices = loadLocalDevices();
+    if (!confirm('Remove "' + devices[index].name + '" from the whitelist?')) return;
+    devices.splice(index, 1);
+    saveLocalDevices(devices);
+    showToast('Device removed');
+    showPage('settings');
   });
 }
 
@@ -2169,19 +2198,68 @@ function saveManualDevice() {
   const fp = document.getElementById('md_fp').value.trim();
   const name = document.getElementById('md_name').value.trim();
   if (!fp || !name) { showToast('Both fields are required'); return; }
-  fetch(getScriptUrl(), {
-    method: 'POST',
-    body: JSON.stringify({ action: 'registerDevice', fingerprint: fp, name: name })
-  })
-  .then(r => r.json())
-  .then(() => { closeModal(); showToast('Device added to whitelist!'); showPage('settings'); })
-  .catch(() => showToast('Error adding device'));
+  const devices = loadLocalDevices();
+  if (devices.some(function(d) { return d.fingerprint === fp; })) {
+    showToast('Device already whitelisted'); return;
+  }
+  devices.push({ fingerprint: fp, name: name, addedAt: new Date().toISOString() });
+  saveLocalDevices(devices);
+  closeModal();
+  showToast('Device added to whitelist!');
+  showPage('settings');
+}
+
+// --- Admin PIN ---
+function isAdminVerified() {
+  return sessionStorage.getItem(ADMIN_SESSION_KEY) === hashString(ADMIN_PIN + 'saar_admin');
+}
+
+function grantAdminSession() {
+  sessionStorage.setItem(ADMIN_SESSION_KEY, hashString(ADMIN_PIN + 'saar_admin'));
+}
+
+function requireAdminPIN(onSuccess) {
+  if (isAdminVerified()) { onSuccess(); return; }
+  const body = '<div class="form-grid single"><div class="form-group">' +
+    '<label class="form-label">Admin PIN</label>' +
+    '<input class="form-input" type="password" id="adminPinInput" placeholder="Enter PIN" ' +
+    'style="letter-spacing:4px;font-size:18px" maxlength="10" ' +
+    'onkeydown="if(event.key===\'Enter\') checkAdminPIN()">' +
+    '<div id="adminPinError" style="color:var(--danger);font-size:12px;margin-top:6px;min-height:16px"></div>' +
+    '<div style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5">' +
+    'This area is restricted to the CRM administrator.</div></div></div>';
+  openModal('Admin Verification', body, 'checkAdminPIN()');
+  setTimeout(function() {
+    var el = document.getElementById('adminPinInput');
+    if (el) el.focus();
+  }, 100);
+  window._adminCallback = onSuccess;
+}
+
+function checkAdminPIN() {
+  var input = document.getElementById('adminPinInput');
+  var errEl = document.getElementById('adminPinError');
+  if (!input) return;
+  if (input.value === ADMIN_PIN) {
+    grantAdminSession();
+    closeModal();
+    if (window._adminCallback) { window._adminCallback(); window._adminCallback = null; }
+  } else {
+    errEl.textContent = 'Incorrect PIN. Please try again.';
+    input.value = '';
+    input.focus();
+  }
 }
 
 // --- Change password ---
 function showChangePwd() {
   requireAdminPIN(function() {
-    const body = '<div class="form-grid single"><div class="form-group"><label class="form-label">Current Password</label><input class="form-input" type="password" id="cp_current"></div><div class="form-group"><label class="form-label">New Password</label><input class="form-input" type="password" id="cp_new" placeholder="Min 6 characters"></div><div class="form-group"><label class="form-label">Confirm New Password</label><input class="form-input" type="password" id="cp_confirm"></div></div>';
+    const body = '<div class="form-grid single"><div class="form-group"><label class="form-label">Current Password</label>' +
+      '<input class="form-input" type="password" id="cp_current"></div>' +
+      '<div class="form-group"><label class="form-label">New Password</label>' +
+      '<input class="form-input" type="password" id="cp_new" placeholder="Min 6 characters"></div>' +
+      '<div class="form-group"><label class="form-label">Confirm New Password</label>' +
+      '<input class="form-input" type="password" id="cp_confirm"></div></div>';
     openModal('Change Password', body, 'saveNewPassword()');
   });
 }
@@ -2193,10 +2271,29 @@ function saveNewPassword() {
   if (cur !== getStoredPassword()) { showToast('Current password is incorrect'); return; }
   if (newP.length < 6) { showToast('New password must be at least 6 characters'); return; }
   if (newP !== conf) { showToast('Passwords do not match'); return; }
+  // Re-encrypt device list with new password
+  const devices = loadLocalDevices();
   localStorage.setItem(PWD_KEY, newP);
+  saveLocalDevices(devices);
   grantSession();
   closeModal();
   showToast('Password changed!');
+}
+
+function saveScriptUrlAndRelogin() {
+  requireAdminPIN(function() {
+    const url = document.getElementById('scriptUrlInput').value.trim();
+    if (!url) { showToast('Please enter the Apps Script URL first'); return; }
+    DB.settings.scriptUrl = url;
+    saveDB();
+    showToast('URL saved — reloading...');
+    setTimeout(function() {
+      sessionStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+      _authPwdOk = false;
+      location.reload();
+    }, 1200);
+  });
 }
 
 
@@ -2213,66 +2310,20 @@ if (DB.settings.scriptUrl) {
 // Check auth on load
 function initAuth() {
   document.getElementById('main').style.display = 'none';
+  document.getElementById('bottomNav').style.display = 'none';
 
-  if (!isAuthenticated()) {
-    // No valid session — show login
-    showAuthStep('authStepLogin');
-    setTimeout(function() {
-      var el = document.getElementById('authInput');
-      if (el) el.focus();
-    }, 100);
+  if (isAuthenticated() && isDeviceWhitelisted(getDeviceFingerprint())) {
+    unlockApp();
     return;
   }
 
-  // Has a valid session — but if Sheet is configured, still verify
-  // device is actually on the whitelist (catches Safari sessionStorage quirks)
-  var scriptUrl = getScriptUrl();
-  if (!scriptUrl) {
-    // No Sheet URL — block, don't trust session
-    sessionStorage.removeItem(SESSION_KEY);
-    showAuthStep('authStepLogin');
-    setTimeout(function() {
-      var el = document.getElementById('authInput');
-      if (el) el.focus();
-    }, 100);
-    return;
-  }
-
-  // Silently verify device against Sheet whitelist
-  showAuthStep('authStepChecking');
-  var fp = getDeviceFingerprint();
-  fetchWithTimeout(scriptUrl + '?action=checkDevice&fingerprint=' + fp)
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.isFirstRun || data.allowed) {
-        if (data.isFirstRun) {
-          // Register as owner silently
-          fetchWithTimeout(scriptUrl, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'registerDevice', fingerprint: fp, name: 'Owner Device' })
-          });
-        }
-        unlockApp();
-      } else {
-        // Valid session but device not on whitelist — force re-login
-        sessionStorage.removeItem(SESSION_KEY);
-        showAuthStep('authStepLogin');
-        setTimeout(function() {
-          var el = document.getElementById('authInput');
-          if (el) el.focus();
-        }, 100);
-      }
-    })
-    .catch(function() {
-      // Network error — block access, show login
-      sessionStorage.removeItem(SESSION_KEY);
-      showAuthStep('authStepLogin');
-      document.getElementById('authError').textContent = 'Connection error. Please check internet and try again.';
-      setTimeout(function() {
-        var el = document.getElementById('authInput');
-        if (el) el.focus();
-      }, 100);
-    });
+  // Clear any stale session
+  sessionStorage.removeItem(SESSION_KEY);
+  showAuthStep('authStepLogin');
+  setTimeout(function() {
+    var el = document.getElementById('authInput');
+    if (el) el.focus();
+  }, 100);
 }
 
 initAuth();
