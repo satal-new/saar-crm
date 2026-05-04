@@ -503,6 +503,94 @@
     border-bottom: 1px solid var(--border);
   }
 
+  /* AUTH SCREEN */
+  #authScreen {
+    position: fixed; inset: 0;
+    background: var(--primary);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999;
+    flex-direction: column;
+  }
+  .auth-card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: 40px 44px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+  }
+  .auth-logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 26px;
+    color: var(--primary);
+    margin-bottom: 4px;
+  }
+  .auth-subtitle {
+    font-size: 12px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 32px;
+  }
+  .auth-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text2);
+    margin-bottom: 6px;
+    display: block;
+  }
+  .auth-input {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    color: var(--text1);
+    letter-spacing: 3px;
+    margin-bottom: 16px;
+  }
+  .auth-input:focus { outline: none; border-color: var(--primary-light); }
+  .auth-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .auth-btn:hover { background: var(--primary-light); }
+  .auth-error {
+    font-size: 12px;
+    color: var(--danger);
+    margin-top: 10px;
+    min-height: 18px;
+    text-align: center;
+  }
+  .auth-hint {
+    font-size: 11px;
+    color: var(--text3);
+    text-align: center;
+    margin-top: 20px;
+    line-height: 1.5;
+  }
+  .change-pwd-link {
+    font-size: 12px;
+    color: var(--text3);
+    cursor: pointer;
+    text-decoration: underline;
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .change-pwd-link:hover { color: var(--text2); }
+
   @media (max-width: 768px) {
     #sidebar { width: 60px; }
     .sidebar-logo .company, .sidebar-logo .tagline, .nav-label, .nav-item span { display: none; }
@@ -515,8 +603,46 @@
 </head>
 <body>
 
+<!-- AUTH SCREEN -->
+<div id="authScreen">
+  <div class="auth-card" id="authStepLogin">
+    <div class="auth-logo">Saar Advisory</div>
+    <div class="auth-subtitle">CRM &middot; Private Access</div>
+    <label class="auth-label" for="authInput">Password</label>
+    <input class="auth-input" type="password" id="authInput" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+      onkeydown="if(event.key==='Enter') submitAuth()">
+    <button class="auth-btn" onclick="submitAuth()">Continue</button>
+    <div class="auth-error" id="authError"></div>
+    <div class="auth-hint">This CRM is private to Saar Advisory.</div>
+  </div>
+  <div class="auth-card" id="authStepRegister" style="display:none">
+    <div class="auth-logo">New Device</div>
+    <div class="auth-subtitle">Register this device</div>
+    <p style="font-size:13px; color:var(--text2); margin-bottom:20px; line-height:1.6">
+      Password accepted. This device is not on the whitelist yet.<br>Give it a name so you can manage it in Settings.
+    </p>
+    <label class="auth-label">Device Name</label>
+    <input class="auth-input" type="text" id="deviceNameInput" placeholder="e.g. Sanket iMac"
+      onkeydown="if(event.key==='Enter') registerDevice()" style="letter-spacing:0">
+    <button class="auth-btn" onclick="registerDevice()">Register &amp; Sign In</button>
+    <div class="auth-error" id="registerError"></div>
+    <div class="auth-hint">You can remove devices anytime from Settings.</div>
+  </div>
+  <div class="auth-card" id="authStepBlocked" style="display:none">
+    <div class="auth-logo" style="color:var(--danger)">Access Denied</div>
+    <div class="auth-subtitle" style="color:var(--danger)">Unauthorised Device</div>
+    <p style="font-size:13px; color:var(--text2); margin-top:16px; line-height:1.6; text-align:center">
+      This device is not authorised to access Saar Advisory CRM.<br><br>
+      Share your Device ID below with the administrator to get whitelisted.
+    </p>
+    <div style="margin-top:16px; background:var(--surface2); border-radius:var(--radius); padding:12px; font-size:11px; color:var(--text3); text-align:center; word-break:break-all; line-height:1.8">
+      Your Device ID:<br><strong id="blockedDeviceId" style="color:var(--text1); font-size:13px"></strong>
+    </div>
+  </div>
+</div>
+
 <!-- SIDEBAR -->
-<nav id="sidebar">
+<nav id="sidebar" style="display:none">
   <div class="sidebar-logo">
     <div class="company">Saar Advisory</div>
     <div class="tagline">CRM</div>
@@ -544,11 +670,12 @@
       <div class="sync-dot pending" id="syncDot"></div>
       <span id="syncText">Not connected</span>
     </div>
+    <button onclick="logout()" style="margin-top:10px; background:none; border:none; color:rgba(255,255,255,0.3); font-size:12px; cursor:pointer; font-family:'DM Sans',sans-serif; padding:0; text-align:left;">⏻ Sign out</button>
   </div>
 </nav>
 
 <!-- MAIN -->
-<div id="main">
+<div id="main" style="display:none">
   <div id="pageContainer"></div>
 </div>
 
@@ -1460,6 +1587,25 @@ function renderSettings() {
         </div>
       </div>
     </div>
+    <div class="section-card" style="margin-top:20px">
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+        <div class="card-title">Whitelisted Devices</div>
+        <button class="btn btn-sm btn-primary" onclick="addDeviceManually()">+ Add Device</button>
+      </div>
+      <div class="card-body">
+        <p style="font-size:13px; color:var(--text2); margin-bottom:16px; line-height:1.6">
+          Only devices on this list can access the CRM after entering the correct password.
+          To whitelist someone else's device: they open the URL, enter the password, and share their Device ID with you from the blocked screen.
+        </p>
+        <div id="deviceManagerList">${renderDeviceManager()}</div>
+      </div>
+    </div>
+    <div class="section-card" style="margin-top:20px">
+      <div class="card-header"><div class="card-title">Password</div></div>
+      <div class="card-body">
+        <button class="btn" onclick="showChangePwd()">Change Password</button>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -1574,6 +1720,211 @@ function showToast(msg) {
 }
 
 // ============================================================
+// DEVICE FINGERPRINTING & AUTH
+// ============================================================
+const DEFAULT_PASSWORD = 'Saar2025!';
+const SESSION_KEY = 'saar_crm_session';
+const PWD_KEY = 'saar_crm_pwd';
+const DEVICES_KEY = 'saar_crm_devices';
+
+function getStoredPassword() {
+  return localStorage.getItem(PWD_KEY) || DEFAULT_PASSWORD;
+}
+
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const chr = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + chr;
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function getCanvasFingerprint() {
+  try {
+    const c = document.createElement('canvas');
+    const ctx = c.getContext('2d');
+    ctx.textBaseline = 'top';
+    ctx.font = '14px Arial';
+    ctx.fillStyle = '#1a2e44';
+    ctx.fillText('SaarAdvisoryCRM', 2, 2);
+    return c.toDataURL().slice(-40);
+  } catch(e) { return 'no-canvas'; }
+}
+
+function getDeviceFingerprint() {
+  const nav = window.navigator;
+  const scr = window.screen;
+  const signals = [
+    nav.userAgent, nav.language,
+    nav.hardwareConcurrency || '', nav.deviceMemory || '',
+    scr.width + 'x' + scr.height, scr.colorDepth,
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+    getCanvasFingerprint()
+  ].join('|');
+  return hashString(signals);
+}
+
+function encryptDevices(devices, password) {
+  const json = JSON.stringify(devices);
+  const key = password + 'saar_salt_9x!';
+  let out = '';
+  for (let i = 0; i < json.length; i++) {
+    out += String.fromCharCode(json.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+  }
+  return btoa(out);
+}
+
+function decryptDevices(encrypted, password) {
+  try {
+    const raw = atob(encrypted);
+    const key = password + 'saar_salt_9x!';
+    let out = '';
+    for (let i = 0; i < raw.length; i++) {
+      out += String.fromCharCode(raw.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return JSON.parse(out);
+  } catch(e) { return []; }
+}
+
+function loadDevices() {
+  const enc = localStorage.getItem(DEVICES_KEY);
+  if (!enc) return [];
+  return decryptDevices(enc, getStoredPassword());
+}
+
+function saveDevices(devices) {
+  localStorage.setItem(DEVICES_KEY, encryptDevices(devices, getStoredPassword()));
+}
+
+function isDeviceWhitelisted(fp) {
+  return loadDevices().some(d => d.fingerprint === fp);
+}
+
+function isFirstRun() {
+  return !localStorage.getItem(DEVICES_KEY);
+}
+
+function isAuthenticated() {
+  const session = sessionStorage.getItem(SESSION_KEY);
+  return session === hashString(getStoredPassword() + getDeviceFingerprint());
+}
+
+function grantSession() {
+  sessionStorage.setItem(SESSION_KEY, hashString(getStoredPassword() + getDeviceFingerprint()));
+}
+
+function unlockApp() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('sidebar').style.display = 'flex';
+  document.getElementById('main').style.display = 'block';
+  showPage('dashboard');
+}
+
+let _authPwdOk = false;
+
+function submitAuth() {
+  const input = document.getElementById('authInput').value;
+  const err = document.getElementById('authError');
+  if (!input) { err.textContent = 'Please enter your password.'; return; }
+  if (input !== getStoredPassword()) {
+    err.textContent = 'Incorrect password. Please try again.';
+    document.getElementById('authInput').value = '';
+    document.getElementById('authInput').focus();
+    return;
+  }
+  _authPwdOk = true;
+  const fp = getDeviceFingerprint();
+  if (isFirstRun()) {
+    saveDevices([{ fingerprint: fp, name: 'Owner Device', addedAt: new Date().toISOString() }]);
+    grantSession(); unlockApp();
+  } else if (isDeviceWhitelisted(fp)) {
+    grantSession(); unlockApp();
+  } else {
+    document.getElementById('authStepLogin').style.display = 'none';
+    document.getElementById('authStepRegister').style.display = 'block';
+    setTimeout(() => document.getElementById('deviceNameInput').focus(), 100);
+  }
+}
+
+function registerDevice() {
+  if (!_authPwdOk) return;
+  const name = document.getElementById('deviceNameInput').value.trim();
+  if (!name) { document.getElementById('registerError').textContent = 'Please enter a device name.'; return; }
+  const fp = getDeviceFingerprint();
+  const devices = loadDevices();
+  devices.push({ fingerprint: fp, name, addedAt: new Date().toISOString() });
+  saveDevices(devices);
+  grantSession(); unlockApp();
+}
+
+function logout() {
+  sessionStorage.removeItem(SESSION_KEY);
+  _authPwdOk = false;
+  location.reload();
+}
+
+function showChangePwd() {
+  const body = '<div class="form-grid single"><div class="form-group"><label class="form-label">Current Password</label><input class="form-input" type="password" id="cp_current"></div><div class="form-group"><label class="form-label">New Password</label><input class="form-input" type="password" id="cp_new" placeholder="Min 6 characters"></div><div class="form-group"><label class="form-label">Confirm New Password</label><input class="form-input" type="password" id="cp_confirm"></div><div style="font-size:12px;color:var(--text3);line-height:1.5;margin-top:4px">Changing password re-encrypts the device whitelist automatically.</div></div>';
+  openModal('Change Password', body, 'saveNewPassword()');
+}
+
+function saveNewPassword() {
+  const cur = document.getElementById('cp_current').value;
+  const newP = document.getElementById('cp_new').value;
+  const conf = document.getElementById('cp_confirm').value;
+  if (cur !== getStoredPassword()) { showToast('Current password is incorrect'); return; }
+  if (newP.length < 6) { showToast('New password must be at least 6 characters'); return; }
+  if (newP !== conf) { showToast('Passwords do not match'); return; }
+  const devices = loadDevices();
+  localStorage.setItem(PWD_KEY, newP);
+  saveDevices(devices);
+  grantSession();
+  closeModal();
+  showToast('Password changed and whitelist re-encrypted!');
+}
+
+function renderDeviceManager() {
+  const devices = loadDevices();
+  const fp = getDeviceFingerprint();
+  if (devices.length === 0) return '<p style="color:var(--text3);font-size:13px">No devices registered yet.</p>';
+  return devices.map(function(d, i) {
+    const isCurrent = d.fingerprint === fp;
+    const badge = isCurrent ? ' <span style="background:var(--success-bg);color:var(--success);font-size:11px;padding:2px 7px;border-radius:4px;font-weight:500">This device</span>' : '';
+    const action = isCurrent ? '<span style="font-size:12px;color:var(--text3)">Current</span>' : '<button class="btn btn-sm btn-danger" onclick="removeDevice(' + i + ')">Remove</button>';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--surface3)"><div><div style="font-weight:500;font-size:14px">' + d.name + badge + '</div><div style="font-size:12px;color:var(--text3);margin-top:2px">Added ' + formatDate(d.addedAt) + ' &middot; ID: ' + d.fingerprint + '</div></div>' + action + '</div>';
+  }).join('');
+}
+
+function removeDevice(index) {
+  const devices = loadDevices();
+  if (!confirm('Remove "' + devices[index].name + '" from the whitelist?')) return;
+  devices.splice(index, 1);
+  saveDevices(devices);
+  showToast('Device removed');
+  showPage('settings');
+}
+
+function addDeviceManually() {
+  const body = '<div class="form-grid single"><div class="form-group"><label class="form-label">Device Fingerprint ID</label><input class="form-input" id="md_fp" placeholder="Paste the ID from the blocked screen" style="font-family:monospace;font-size:12px"><span style="font-size:11px;color:var(--text3);margin-top:4px;display:block">The person will see their Device ID on the Access Denied screen.</span></div><div class="form-group" style="margin-top:8px"><label class="form-label">Device Name</label><input class="form-input" id="md_name" placeholder="e.g. John iPad Pro"></div></div>';
+  openModal('Add Device to Whitelist', body, 'saveManualDevice()');
+}
+
+function saveManualDevice() {
+  const fp = document.getElementById('md_fp').value.trim();
+  const name = document.getElementById('md_name').value.trim();
+  if (!fp || !name) { showToast('Both fields are required'); return; }
+  const devices = loadDevices();
+  if (devices.some(function(d) { return d.fingerprint === fp; })) { showToast('Device already whitelisted'); return; }
+  devices.push({ fingerprint: fp, name: name, addedAt: new Date().toISOString() });
+  saveDevices(devices);
+  closeModal();
+  showToast('Device added to whitelist!');
+  showPage('settings');
+}
+
+// ============================================================
 // INIT
 // ============================================================
 loadDB();
@@ -1582,7 +1933,23 @@ if (DB.settings.scriptUrl) {
 } else {
   setSyncStatus('error', 'Not configured');
 }
-showPage('dashboard');
+
+// Check auth on load
+if (isAuthenticated()) {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('sidebar').style.display = 'flex';
+  document.getElementById('main').style.display = 'block';
+  showPage('dashboard');
+} else {
+  document.getElementById('main').style.display = 'none';
+  setTimeout(function() {
+    var el = document.getElementById('authInput');
+    if (el) el.focus();
+    // Pre-compute and show device ID on blocked screen (in case needed)
+    var bid = document.getElementById('blockedDeviceId');
+    if (bid) bid.textContent = getDeviceFingerprint();
+  }, 100);
+}
 </script>
 </body>
 </html>
