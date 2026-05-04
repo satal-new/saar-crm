@@ -1997,21 +1997,59 @@ if (DB.settings.scriptUrl) {
 }
 
 // Check auth on load
-if (isAuthenticated()) {
-  // Valid session — go straight in
-  document.getElementById('authScreen').style.display = 'none';
-  document.getElementById('sidebar').style.display = 'flex';
-  document.getElementById('main').style.display = 'block';
-  showPage('dashboard');
-} else {
-  // Show login screen
+function initAuth() {
   document.getElementById('main').style.display = 'none';
-  showAuthStep('authStepLogin');
-  setTimeout(function() {
-    var el = document.getElementById('authInput');
-    if (el) el.focus();
-  }, 100);
+
+  if (!isAuthenticated()) {
+    // No valid session — show login
+    showAuthStep('authStepLogin');
+    setTimeout(function() {
+      var el = document.getElementById('authInput');
+      if (el) el.focus();
+    }, 100);
+    return;
+  }
+
+  // Has a valid session — but if Sheet is configured, still verify
+  // device is actually on the whitelist (catches Safari sessionStorage quirks)
+  if (!DB.settings.scriptUrl) {
+    // No Sheet — trust the session
+    unlockApp();
+    return;
+  }
+
+  // Silently verify device against Sheet whitelist
+  showAuthStep('authStepChecking');
+  var fp = getDeviceFingerprint();
+  fetch(DB.settings.scriptUrl + '?action=checkDevice&fingerprint=' + fp)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.isFirstRun || data.allowed) {
+        if (data.isFirstRun) {
+          // Register as owner silently
+          fetch(DB.settings.scriptUrl, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'registerDevice', fingerprint: fp, name: 'Owner Device' })
+          });
+        }
+        unlockApp();
+      } else {
+        // Valid session but device not on whitelist — force re-login
+        sessionStorage.removeItem(SESSION_KEY);
+        showAuthStep('authStepLogin');
+        setTimeout(function() {
+          var el = document.getElementById('authInput');
+          if (el) el.focus();
+        }, 100);
+      }
+    })
+    .catch(function() {
+      // Network error — trust the session
+      unlockApp();
+    });
 }
+
+initAuth();
 </script>
 </body>
 </html>
