@@ -639,7 +639,20 @@
       Your Device ID:<br><strong id="blockedDeviceId" style="color:var(--text1); font-size:13px"></strong>
     </div>
   </div>
+
+  <!-- Checking spinner -->
+  <div class="auth-card" id="authStepChecking" style="display:none; text-align:center">
+    <div class="auth-logo">Saar Advisory</div>
+    <div class="auth-subtitle">Verifying device...</div>
+    <div style="margin: 30px auto; width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite"></div>
+    <div style="font-size:13px; color:var(--text3)">Checking whitelist...</div>
+  </div>
+
 </div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
 
 <!-- SIDEBAR -->
 <nav id="sidebar" style="display:none">
@@ -1720,12 +1733,11 @@ function showToast(msg) {
 }
 
 // ============================================================
-// DEVICE FINGERPRINTING & AUTH
+// DEVICE FINGERPRINTING & AUTH (v2 — Sheet-synced whitelist)
 // ============================================================
 const DEFAULT_PASSWORD = 'Saar2025!';
 const SESSION_KEY = 'saar_crm_session';
 const PWD_KEY = 'saar_crm_pwd';
-const DEVICES_KEY = 'saar_crm_devices';
 
 function getStoredPassword() {
   return localStorage.getItem(PWD_KEY) || DEFAULT_PASSWORD;
@@ -1766,46 +1778,6 @@ function getDeviceFingerprint() {
   return hashString(signals);
 }
 
-function encryptDevices(devices, password) {
-  const json = JSON.stringify(devices);
-  const key = password + 'saar_salt_9x!';
-  let out = '';
-  for (let i = 0; i < json.length; i++) {
-    out += String.fromCharCode(json.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-  }
-  return btoa(out);
-}
-
-function decryptDevices(encrypted, password) {
-  try {
-    const raw = atob(encrypted);
-    const key = password + 'saar_salt_9x!';
-    let out = '';
-    for (let i = 0; i < raw.length; i++) {
-      out += String.fromCharCode(raw.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-    }
-    return JSON.parse(out);
-  } catch(e) { return []; }
-}
-
-function loadDevices() {
-  const enc = localStorage.getItem(DEVICES_KEY);
-  if (!enc) return [];
-  return decryptDevices(enc, getStoredPassword());
-}
-
-function saveDevices(devices) {
-  localStorage.setItem(DEVICES_KEY, encryptDevices(devices, getStoredPassword()));
-}
-
-function isDeviceWhitelisted(fp) {
-  return loadDevices().some(d => d.fingerprint === fp);
-}
-
-function isFirstRun() {
-  return !localStorage.getItem(DEVICES_KEY);
-}
-
 function isAuthenticated() {
   const session = sessionStorage.getItem(SESSION_KEY);
   return session === hashString(getStoredPassword() + getDeviceFingerprint());
@@ -1822,8 +1794,16 @@ function unlockApp() {
   showPage('dashboard');
 }
 
+function showAuthStep(step) {
+  ['authStepLogin','authStepRegister','authStepBlocked','authStepChecking'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = id === step ? 'block' : 'none';
+  });
+}
+
 let _authPwdOk = false;
 
+// Called when user clicks Continue on the password screen
 function submitAuth() {
   const input = document.getElementById('authInput').value;
   const err = document.getElementById('authError');
@@ -1835,28 +1815,53 @@ function submitAuth() {
     return;
   }
   _authPwdOk = true;
-  const fp = getDeviceFingerprint();
-  if (isFirstRun()) {
-    saveDevices([{ fingerprint: fp, name: 'Owner Device', addedAt: new Date().toISOString() }]);
-    grantSession(); unlockApp();
-  } else if (isDeviceWhitelisted(fp)) {
-    grantSession(); unlockApp();
-  } else {
-    document.getElementById('authStepLogin').style.display = 'none';
-    document.getElementById('authStepRegister').style.display = 'block';
-    setTimeout(() => document.getElementById('deviceNameInput').focus(), 100);
+  err.textContent = '';
+
+  if (!DB.settings.scriptUrl) {
+    // No Sheet configured — fall back to local-only, auto-admit
+    grantSession(); unlockApp(); return;
   }
+
+  // Check device against Sheet whitelist
+  showAuthStep('authStepChecking');
+  const fp = getDeviceFingerprint();
+  fetch(DB.settings.scriptUrl + '?action=checkDevice&fingerprint=' + fp)
+    .then(r => r.json())
+    .then(data => {
+      if (data.isFirstRun) {
+        // No devices at all yet — auto-register as Owner
+        return fetch(DB.settings.scriptUrl, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'registerDevice', fingerprint: fp, name: 'Owner Device' })
+        }).then(() => { grantSession(); unlockApp(); });
+      } else if (data.allowed) {
+        grantSession(); unlockApp();
+      } else {
+        // Device not whitelisted — show blocked screen with ID
+        document.getElementById('blockedDeviceId').textContent = fp;
+        showAuthStep('authStepBlocked');
+      }
+    })
+    .catch(() => {
+      // Network error — fall back to password-only access
+      grantSession(); unlockApp();
+    });
 }
 
+// Called when user names and registers their new device
 function registerDevice() {
   if (!_authPwdOk) return;
   const name = document.getElementById('deviceNameInput').value.trim();
   if (!name) { document.getElementById('registerError').textContent = 'Please enter a device name.'; return; }
   const fp = getDeviceFingerprint();
-  const devices = loadDevices();
-  devices.push({ fingerprint: fp, name, addedAt: new Date().toISOString() });
-  saveDevices(devices);
-  grantSession(); unlockApp();
+  showAuthStep('authStepChecking');
+  fetch(DB.settings.scriptUrl, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'registerDevice', fingerprint: fp, name: name })
+  })
+  .then(r => r.json())
+  .then(() => { grantSession(); unlockApp(); })
+  .catch(() => { grantSession(); unlockApp(); });
 }
 
 function logout() {
@@ -1865,8 +1870,75 @@ function logout() {
   location.reload();
 }
 
+// --- Device management (Settings page) ---
+function loadDevicesFromSheet(callback) {
+  if (!DB.settings.scriptUrl) { callback([]); return; }
+  fetch(DB.settings.scriptUrl + '?action=getDevices')
+    .then(r => r.json())
+    .then(data => callback(data.devices || []))
+    .catch(() => callback([]));
+}
+
+function renderDeviceManager() {
+  const container = document.getElementById('deviceManagerList');
+  if (!container) return;
+  container.innerHTML = '<p style="color:var(--text3);font-size:13px">Loading devices...</p>';
+  loadDevicesFromSheet(function(devices) {
+    const fp = getDeviceFingerprint();
+    if (devices.length === 0) {
+      container.innerHTML = '<p style="color:var(--text3);font-size:13px">No devices registered yet.</p>';
+      return;
+    }
+    container.innerHTML = devices.map(function(d, i) {
+      const isCurrent = d.fingerprint === fp;
+      const badge = isCurrent ? ' <span style="background:var(--success-bg);color:var(--success);font-size:11px;padding:2px 7px;border-radius:4px;font-weight:500">This device</span>' : '';
+      const action = isCurrent
+        ? '<span style="font-size:12px;color:var(--text3)">Current</span>'
+        : '<button class="btn btn-sm btn-danger" onclick="removeDevice(\'' + d.fingerprint + '\')">Remove</button>';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--surface3)">' +
+        '<div><div style="font-weight:500;font-size:14px">' + d.name + badge + '</div>' +
+        '<div style="font-size:12px;color:var(--text3);margin-top:2px">Added ' + formatDate(d.addedAt) + ' &middot; ID: ' + d.fingerprint + '</div></div>' +
+        action + '</div>';
+    }).join('');
+  });
+}
+
+function removeDevice(fingerprint) {
+  if (!confirm('Remove this device from the whitelist?')) return;
+  fetch(DB.settings.scriptUrl, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'removeDevice', fingerprint: fingerprint })
+  })
+  .then(() => { showToast('Device removed'); showPage('settings'); })
+  .catch(() => showToast('Error removing device'));
+}
+
+function addDeviceManually() {
+  const body = '<div class="form-grid single">' +
+    '<div class="form-group"><label class="form-label">Device Fingerprint ID</label>' +
+    '<input class="form-input" id="md_fp" placeholder="Paste the ID from the blocked screen" style="font-family:monospace;font-size:12px">' +
+    '<span style="font-size:11px;color:var(--text3);margin-top:4px;display:block">The person sees their Device ID on the Access Denied screen.</span></div>' +
+    '<div class="form-group" style="margin-top:8px"><label class="form-label">Device Name</label>' +
+    '<input class="form-input" id="md_name" placeholder="e.g. John iPad Pro"></div></div>';
+  openModal('Add Device to Whitelist', body, 'saveManualDevice()');
+}
+
+function saveManualDevice() {
+  const fp = document.getElementById('md_fp').value.trim();
+  const name = document.getElementById('md_name').value.trim();
+  if (!fp || !name) { showToast('Both fields are required'); return; }
+  fetch(DB.settings.scriptUrl, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'registerDevice', fingerprint: fp, name: name })
+  })
+  .then(r => r.json())
+  .then(() => { closeModal(); showToast('Device added to whitelist!'); showPage('settings'); })
+  .catch(() => showToast('Error adding device'));
+}
+
+// --- Change password ---
 function showChangePwd() {
-  const body = '<div class="form-grid single"><div class="form-group"><label class="form-label">Current Password</label><input class="form-input" type="password" id="cp_current"></div><div class="form-group"><label class="form-label">New Password</label><input class="form-input" type="password" id="cp_new" placeholder="Min 6 characters"></div><div class="form-group"><label class="form-label">Confirm New Password</label><input class="form-input" type="password" id="cp_confirm"></div><div style="font-size:12px;color:var(--text3);line-height:1.5;margin-top:4px">Changing password re-encrypts the device whitelist automatically.</div></div>';
+  const body = '<div class="form-grid single"><div class="form-group"><label class="form-label">Current Password</label><input class="form-input" type="password" id="cp_current"></div><div class="form-group"><label class="form-label">New Password</label><input class="form-input" type="password" id="cp_new" placeholder="Min 6 characters"></div><div class="form-group"><label class="form-label">Confirm New Password</label><input class="form-input" type="password" id="cp_confirm"></div></div>';
   openModal('Change Password', body, 'saveNewPassword()');
 }
 
@@ -1877,52 +1949,12 @@ function saveNewPassword() {
   if (cur !== getStoredPassword()) { showToast('Current password is incorrect'); return; }
   if (newP.length < 6) { showToast('New password must be at least 6 characters'); return; }
   if (newP !== conf) { showToast('Passwords do not match'); return; }
-  const devices = loadDevices();
   localStorage.setItem(PWD_KEY, newP);
-  saveDevices(devices);
   grantSession();
   closeModal();
-  showToast('Password changed and whitelist re-encrypted!');
+  showToast('Password changed!');
 }
 
-function renderDeviceManager() {
-  const devices = loadDevices();
-  const fp = getDeviceFingerprint();
-  if (devices.length === 0) return '<p style="color:var(--text3);font-size:13px">No devices registered yet.</p>';
-  return devices.map(function(d, i) {
-    const isCurrent = d.fingerprint === fp;
-    const badge = isCurrent ? ' <span style="background:var(--success-bg);color:var(--success);font-size:11px;padding:2px 7px;border-radius:4px;font-weight:500">This device</span>' : '';
-    const action = isCurrent ? '<span style="font-size:12px;color:var(--text3)">Current</span>' : '<button class="btn btn-sm btn-danger" onclick="removeDevice(' + i + ')">Remove</button>';
-    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--surface3)"><div><div style="font-weight:500;font-size:14px">' + d.name + badge + '</div><div style="font-size:12px;color:var(--text3);margin-top:2px">Added ' + formatDate(d.addedAt) + ' &middot; ID: ' + d.fingerprint + '</div></div>' + action + '</div>';
-  }).join('');
-}
-
-function removeDevice(index) {
-  const devices = loadDevices();
-  if (!confirm('Remove "' + devices[index].name + '" from the whitelist?')) return;
-  devices.splice(index, 1);
-  saveDevices(devices);
-  showToast('Device removed');
-  showPage('settings');
-}
-
-function addDeviceManually() {
-  const body = '<div class="form-grid single"><div class="form-group"><label class="form-label">Device Fingerprint ID</label><input class="form-input" id="md_fp" placeholder="Paste the ID from the blocked screen" style="font-family:monospace;font-size:12px"><span style="font-size:11px;color:var(--text3);margin-top:4px;display:block">The person will see their Device ID on the Access Denied screen.</span></div><div class="form-group" style="margin-top:8px"><label class="form-label">Device Name</label><input class="form-input" id="md_name" placeholder="e.g. John iPad Pro"></div></div>';
-  openModal('Add Device to Whitelist', body, 'saveManualDevice()');
-}
-
-function saveManualDevice() {
-  const fp = document.getElementById('md_fp').value.trim();
-  const name = document.getElementById('md_name').value.trim();
-  if (!fp || !name) { showToast('Both fields are required'); return; }
-  const devices = loadDevices();
-  if (devices.some(function(d) { return d.fingerprint === fp; })) { showToast('Device already whitelisted'); return; }
-  devices.push({ fingerprint: fp, name: name, addedAt: new Date().toISOString() });
-  saveDevices(devices);
-  closeModal();
-  showToast('Device added to whitelist!');
-  showPage('settings');
-}
 
 // ============================================================
 // INIT
@@ -1936,18 +1968,18 @@ if (DB.settings.scriptUrl) {
 
 // Check auth on load
 if (isAuthenticated()) {
+  // Valid session — go straight in
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('sidebar').style.display = 'flex';
   document.getElementById('main').style.display = 'block';
   showPage('dashboard');
 } else {
+  // Show login screen
   document.getElementById('main').style.display = 'none';
+  showAuthStep('authStepLogin');
   setTimeout(function() {
     var el = document.getElementById('authInput');
     if (el) el.focus();
-    // Pre-compute and show device ID on blocked screen (in case needed)
-    var bid = document.getElementById('blockedDeviceId');
-    if (bid) bid.textContent = getDeviceFingerprint();
   }, 100);
 }
 </script>
