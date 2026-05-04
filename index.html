@@ -1661,16 +1661,19 @@ function saveScriptUrl() {
 }
 
 function saveScriptUrlAndRelogin() {
-  const url = document.getElementById('scriptUrlInput').value.trim();
-  if (!url) { showToast('Please enter the Apps Script URL first'); return; }
-  DB.settings.scriptUrl = url;
-  saveDB();
-  showToast('URL saved — clearing session for re-verification...');
-  setTimeout(() => {
-    sessionStorage.removeItem(SESSION_KEY);
-    _authPwdOk = false;
-    location.reload();
-  }, 1200);
+  requireAdminPIN(function() {
+    const url = document.getElementById('scriptUrlInput').value.trim();
+    if (!url) { showToast('Please enter the Apps Script URL first'); return; }
+    DB.settings.scriptUrl = url;
+    saveDB();
+    showToast('URL saved — clearing session for re-verification...');
+    setTimeout(function() {
+      sessionStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+      _authPwdOk = false;
+      location.reload();
+    }, 1200);
+  });
 }
 
 // ============================================================
@@ -1783,9 +1786,55 @@ function showToast(msg) {
 const DEFAULT_PASSWORD = 'Saar2025!';
 const SESSION_KEY = 'saar_crm_session';
 const PWD_KEY = 'saar_crm_pwd';
+const ADMIN_PIN = '2406';
+const ADMIN_SESSION_KEY = 'saar_crm_admin';
 
 function getStoredPassword() {
   return localStorage.getItem(PWD_KEY) || DEFAULT_PASSWORD;
+}
+
+function isAdminVerified() {
+  return sessionStorage.getItem(ADMIN_SESSION_KEY) === hashString(ADMIN_PIN + 'saar_admin');
+}
+
+function grantAdminSession() {
+  sessionStorage.setItem(ADMIN_SESSION_KEY, hashString(ADMIN_PIN + 'saar_admin'));
+}
+
+function requireAdminPIN(onSuccess) {
+  if (isAdminVerified()) { onSuccess(); return; }
+  const body = '<div class="form-grid single">' +
+    '<div class="form-group">' +
+    '<label class="form-label">Admin PIN</label>' +
+    '<input class="form-input" type="password" id="adminPinInput" placeholder="Enter PIN" ' +
+    'style="letter-spacing:4px;font-size:18px" maxlength="10" ' +
+    'onkeydown="if(event.key==='Enter') checkAdminPIN()">' +
+    '<div id="adminPinError" style="color:var(--danger);font-size:12px;margin-top:6px;min-height:16px"></div>' +
+    '<div style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5">' +
+    'This area is restricted to the CRM administrator.</div>' +
+    '</div></div>';
+  openModal('Admin Verification', body, 'checkAdminPIN()');
+  setTimeout(function() {
+    var el = document.getElementById('adminPinInput');
+    if (el) el.focus();
+  }, 100);
+  // Store callback for after PIN verification
+  window._adminCallback = onSuccess;
+}
+
+function checkAdminPIN() {
+  var input = document.getElementById('adminPinInput');
+  var errEl = document.getElementById('adminPinError');
+  if (!input) return;
+  if (input.value === ADMIN_PIN) {
+    grantAdminSession();
+    closeModal();
+    if (window._adminCallback) { window._adminCallback(); window._adminCallback = null; }
+  } else {
+    errEl.textContent = 'Incorrect PIN. Please try again.';
+    input.value = '';
+    input.focus();
+  }
 }
 
 function hashString(str) {
@@ -1965,23 +2014,27 @@ function renderDeviceManager() {
 }
 
 function removeDevice(fingerprint) {
-  if (!confirm('Remove this device from the whitelist?')) return;
-  fetch(getScriptUrl(), {
-    method: 'POST',
-    body: JSON.stringify({ action: 'removeDevice', fingerprint: fingerprint })
-  })
-  .then(() => { showToast('Device removed'); showPage('settings'); })
-  .catch(() => showToast('Error removing device'));
+  requireAdminPIN(function() {
+    if (!confirm('Remove this device from the whitelist?')) return;
+    fetch(getScriptUrl(), {
+      method: 'POST',
+      body: JSON.stringify({ action: 'removeDevice', fingerprint: fingerprint })
+    })
+    .then(function() { showToast('Device removed'); showPage('settings'); })
+    .catch(function() { showToast('Error removing device'); });
+  });
 }
 
 function addDeviceManually() {
-  const body = '<div class="form-grid single">' +
-    '<div class="form-group"><label class="form-label">Device Fingerprint ID</label>' +
-    '<input class="form-input" id="md_fp" placeholder="Paste the ID from the blocked screen" style="font-family:monospace;font-size:12px">' +
-    '<span style="font-size:11px;color:var(--text3);margin-top:4px;display:block">The person sees their Device ID on the Access Denied screen.</span></div>' +
-    '<div class="form-group" style="margin-top:8px"><label class="form-label">Device Name</label>' +
-    '<input class="form-input" id="md_name" placeholder="e.g. John iPad Pro"></div></div>';
-  openModal('Add Device to Whitelist', body, 'saveManualDevice()');
+  requireAdminPIN(function() {
+    const body = '<div class="form-grid single">' +
+      '<div class="form-group"><label class="form-label">Device Fingerprint ID</label>' +
+      '<input class="form-input" id="md_fp" placeholder="Paste the ID from the blocked screen" style="font-family:monospace;font-size:12px">' +
+      '<span style="font-size:11px;color:var(--text3);margin-top:4px;display:block">The person sees their Device ID on the Access Denied screen.</span></div>' +
+      '<div class="form-group" style="margin-top:8px"><label class="form-label">Device Name</label>' +
+      '<input class="form-input" id="md_name" placeholder="e.g. John iPad Pro"></div></div>';
+    openModal('Add Device to Whitelist', body, 'saveManualDevice()');
+  });
 }
 
 function saveManualDevice() {
@@ -1999,8 +2052,10 @@ function saveManualDevice() {
 
 // --- Change password ---
 function showChangePwd() {
-  const body = '<div class="form-grid single"><div class="form-group"><label class="form-label">Current Password</label><input class="form-input" type="password" id="cp_current"></div><div class="form-group"><label class="form-label">New Password</label><input class="form-input" type="password" id="cp_new" placeholder="Min 6 characters"></div><div class="form-group"><label class="form-label">Confirm New Password</label><input class="form-input" type="password" id="cp_confirm"></div></div>';
-  openModal('Change Password', body, 'saveNewPassword()');
+  requireAdminPIN(function() {
+    const body = '<div class="form-grid single"><div class="form-group"><label class="form-label">Current Password</label><input class="form-input" type="password" id="cp_current"></div><div class="form-group"><label class="form-label">New Password</label><input class="form-input" type="password" id="cp_new" placeholder="Min 6 characters"></div><div class="form-group"><label class="form-label">Confirm New Password</label><input class="form-input" type="password" id="cp_confirm"></div></div>';
+    openModal('Change Password', body, 'saveNewPassword()');
+  });
 }
 
 function saveNewPassword() {
