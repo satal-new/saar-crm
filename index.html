@@ -591,13 +591,89 @@
   }
   .change-pwd-link:hover { color: var(--text2); }
 
+  /* ===================== MOBILE ===================== */
   @media (max-width: 768px) {
-    #sidebar { width: 60px; }
-    .sidebar-logo .company, .sidebar-logo .tagline, .nav-label, .nav-item span { display: none; }
-    #main { margin-left: 60px; }
+
+    /* Hide desktop sidebar entirely on mobile */
+    #sidebar { display: none !important; }
+
+    /* Main fills full screen, add bottom padding for nav bar */
+    #main { margin-left: 0 !important; padding-bottom: 70px; }
+
+    /* Topbar adjustments */
+    .topbar { padding: 0 14px; height: 50px; }
+    .page-title { font-size: 17px; }
+    .content { padding: 14px; }
+
+    /* Bottom navigation bar */
+    #bottomNav {
+      display: flex !important;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 62px;
+      background: var(--primary);
+      z-index: 200;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .bottom-nav-item {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.5);
+      cursor: pointer; gap: 3px;
+      font-size: 10px; font-weight: 500;
+      transition: color 0.15s;
+      padding: 6px 0;
+    }
+    .bottom-nav-item.active { color: var(--accent-light); }
+    .bottom-nav-item .nav-icon { font-size: 20px; line-height: 1; }
+
+    /* Stack all grids to single column */
     .form-grid { grid-template-columns: 1fr; }
     .info-grid { grid-template-columns: 1fr; }
     .financial-grid { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+
+    /* Dashboard two-col grid stacks */
+    .content > div[style*="grid-template-columns: 1fr 1fr"] {
+      display: block !important;
+    }
+
+    /* Tables scroll horizontally */
+    .section-card { overflow-x: auto; }
+    .data-table { min-width: 500px; }
+
+    /* Company detail header */
+    .detail-header { padding: 14px; }
+    .detail-company-name { font-size: 20px; }
+    .detail-meta { flex-wrap: wrap; gap: 6px; }
+
+    /* Tabs scroll horizontally */
+    .tabs { padding: 0 14px; overflow-x: auto; white-space: nowrap; }
+    .tab { padding: 10px 14px; font-size: 12px; }
+    .tab-content { padding: 14px; }
+
+    /* Filter bar stacks */
+    .filter-bar { flex-direction: column; align-items: stretch; }
+    .filter-bar input[type="text"] { width: 100%; }
+    .filter-bar select { width: 100%; }
+
+    /* Modal full width on mobile */
+    .modal-overlay { padding: 20px 12px; align-items: flex-end; }
+    .modal { border-radius: var(--radius-lg) var(--radius-lg) 0 0; max-height: 90vh; overflow-y: auto; }
+
+    /* Auth card padding */
+    .auth-card { padding: 28px 24px; }
+
+    /* Topbar actions */
+    .topbar-actions .btn span { display: none; }
+    .topbar-actions .btn { padding: 7px 10px; }
+
+    /* Contact cards */
+    .contact-card { flex-direction: column; }
+
+    /* Meeting items */
+    .meeting-item { padding: 8px 0; }
   }
 </style>
 </head>
@@ -695,6 +771,26 @@
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+
+<!-- MOBILE BOTTOM NAV (hidden on desktop via CSS) -->
+<nav id="bottomNav" style="display:none">
+  <div class="bottom-nav-item active" id="bn_dashboard" onclick="showPage('dashboard'); setBottomNav('bn_dashboard')">
+    <span class="nav-icon">◈</span>
+    <span>Dashboard</span>
+  </div>
+  <div class="bottom-nav-item" id="bn_companies" onclick="showPage('companies'); setBottomNav('bn_companies')">
+    <span class="nav-icon">⬡</span>
+    <span>Companies</span>
+  </div>
+  <div class="bottom-nav-item" id="bn_export" onclick="exportToExcel()">
+    <span class="nav-icon">⬇</span>
+    <span>Export</span>
+  </div>
+  <div class="bottom-nav-item" id="bn_settings" onclick="showPage('settings'); setBottomNav('bn_settings')">
+    <span class="nav-icon">⚙</span>
+    <span>Settings</span>
+  </div>
+</nav>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
@@ -806,6 +902,12 @@ let currentPage = 'dashboard';
 let currentCompanyId = null;
 let currentTab = 'overview';
 
+function setBottomNav(activeId) {
+  document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active'));
+  var el = document.getElementById(activeId);
+  if (el) el.classList.add('active');
+}
+
 function showPage(page, companyId) {
   currentPage = page;
   if (companyId) currentCompanyId = companyId;
@@ -814,6 +916,10 @@ function showPage(page, companyId) {
   const navMap = { dashboard: 0, companies: 1 };
   const navItems = document.querySelectorAll('.nav-item');
   if (navMap[page] !== undefined) navItems[navMap[page]].classList.add('active');
+
+  // Sync bottom nav
+  var bnMap = { dashboard: 'bn_dashboard', companies: 'bn_companies', settings: 'bn_settings' };
+  if (bnMap[page]) setBottomNav(bnMap[page]);
 
   const container = document.getElementById('pageContainer');
   if (page === 'dashboard') container.innerHTML = renderDashboard();
@@ -1073,7 +1179,7 @@ function renderCompanyDetail(id) {
 
   return `
   <div class="detail-header">
-    <div class="detail-back" onclick="showPage('companies')">← Back to Companies</div>
+    <div class="detail-back" onclick="showPage('companies'); setBottomNav('bn_companies')">← Back to Companies</div>
     <div style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px">
       <div>
         <div class="detail-company-name">${c.name}</div>
@@ -1651,7 +1757,18 @@ function renderSettings() {
         <button class="btn" onclick="showChangePwd()">Change Password</button>
       </div>
     </div>
+    <div class="section-card" style="margin-top:20px; display:none" id="mobileSignOutCard">
+      <div class="card-header"><div class="card-title">Session</div></div>
+      <div class="card-body" style="display:flex; gap:10px; flex-wrap:wrap">
+        <button class="btn" onclick="logout()">&#9211; Sign Out</button>
+        <button class="btn" onclick="forceRelogin()">&#8635; Re-verify Device</button>
+      </div>
+    </div>
   </div>`;
+  setTimeout(function() {
+    var card = document.getElementById('mobileSignOutCard');
+    if (card && window.innerWidth <= 768) card.style.display = 'block';
+  }, 0);
 }
 
 function saveScriptUrl() {
