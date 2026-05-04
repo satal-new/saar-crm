@@ -803,7 +803,7 @@
 // Paste your Apps Script URL here — this ensures ALL devices
 // can find the backend without manual configuration.
 // This is safe: the URL is useless without the password + whitelisted device.
-const HARDCODED_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxfzZAm2fKanhXkz-8vMxpVCeTtrEGBFD6h0cxZT7aXZl5H5OiMXGzMwTLVQkArcfVG/exec';
+const HARDCODED_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwcHMzC-mXXQXxq8msDPrcKpJ0Pgul1skO4uURCRlaFk6sgayI4S7HYOP3NT_5xuC7O/exec';
 
 let DB = {
   companies: [],
@@ -834,6 +834,17 @@ function getScriptUrl() {
     return HARDCODED_SCRIPT_URL;
   }
   return null;
+}
+
+// Fetch with 8 second timeout to prevent hanging
+function fetchWithTimeout(url, options, timeout) {
+  timeout = timeout || 8000;
+  return Promise.race([
+    fetch(url, options),
+    new Promise(function(_, reject) {
+      setTimeout(function() { reject(new Error('Request timed out')); }, timeout);
+    })
+  ]);
 }
 
 function saveDB() {
@@ -2039,12 +2050,12 @@ function submitAuth() {
   // Check device against Sheet whitelist
   showAuthStep('authStepChecking');
   var fp = getDeviceFingerprint();
-  fetch(scriptUrl + '?action=checkDevice&fingerprint=' + fp)
+  fetchWithTimeout(scriptUrl + '?action=checkDevice&fingerprint=' + fp)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.isFirstRun) {
         // No devices at all yet — auto-register as Owner
-        return fetch(scriptUrl, {
+        return fetchWithTimeout(scriptUrl, {
           method: 'POST',
           body: JSON.stringify({ action: 'registerDevice', fingerprint: fp, name: 'Owner Device' })
         }).then(function() { grantSession(); unlockApp(); });
@@ -2070,7 +2081,7 @@ function registerDevice() {
   if (!name) { document.getElementById('registerError').textContent = 'Please enter a device name.'; return; }
   const fp = getDeviceFingerprint();
   showAuthStep('authStepChecking');
-  fetch(getScriptUrl(), {
+  fetchWithTimeout(getScriptUrl(), {
     method: 'POST',
     body: JSON.stringify({ action: 'registerDevice', fingerprint: fp, name: name })
   })
@@ -2100,7 +2111,7 @@ function forceRelogin() {
 function loadDevicesFromSheet(callback) {
   var scriptUrl = getScriptUrl();
   if (!scriptUrl) { callback([]); return; }
-  fetch(scriptUrl + '?action=getDevices')
+  fetchWithTimeout(scriptUrl + '?action=getDevices')
     .then(r => r.json())
     .then(data => callback(data.devices || []))
     .catch(() => callback([]));
@@ -2230,13 +2241,13 @@ function initAuth() {
   // Silently verify device against Sheet whitelist
   showAuthStep('authStepChecking');
   var fp = getDeviceFingerprint();
-  fetch(scriptUrl + '?action=checkDevice&fingerprint=' + fp)
+  fetchWithTimeout(scriptUrl + '?action=checkDevice&fingerprint=' + fp)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.isFirstRun || data.allowed) {
         if (data.isFirstRun) {
           // Register as owner silently
-          fetch(scriptUrl, {
+          fetchWithTimeout(scriptUrl, {
             method: 'POST',
             body: JSON.stringify({ action: 'registerDevice', fingerprint: fp, name: 'Owner Device' })
           });
