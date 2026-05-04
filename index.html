@@ -683,7 +683,8 @@
       <div class="sync-dot pending" id="syncDot"></div>
       <span id="syncText">Not connected</span>
     </div>
-    <button onclick="logout()" style="margin-top:10px; background:none; border:none; color:rgba(255,255,255,0.3); font-size:12px; cursor:pointer; font-family:'DM Sans',sans-serif; padding:0; text-align:left;">⏻ Sign out</button>
+    <button onclick="logout()" style="margin-top:10px; background:none; border:none; color:rgba(255,255,255,0.3); font-size:12px; cursor:pointer; font-family:'DM Sans',sans-serif; padding:0; text-align:left; display:block">⏻ Sign out</button>
+    <button onclick="forceRelogin()" style="margin-top:6px; background:none; border:none; color:rgba(255,255,255,0.2); font-size:11px; cursor:pointer; font-family:'DM Sans',sans-serif; padding:0; text-align:left; display:block">↺ Re-verify device</button>
   </div>
 </nav>
 
@@ -795,7 +796,10 @@ function showPage(page, companyId) {
   if (page === 'dashboard') container.innerHTML = renderDashboard();
   else if (page === 'companies') container.innerHTML = renderCompanies();
   else if (page === 'company') { currentTab = 'overview'; container.innerHTML = renderCompanyDetail(currentCompanyId); }
-  else if (page === 'settings') container.innerHTML = renderSettings();
+  else if (page === 'settings') {
+    container.innerHTML = renderSettings();
+    renderDeviceManager();
+  }
 }
 
 // ============================================================
@@ -1581,11 +1585,16 @@ function renderSettings() {
           <input class="form-input" id="scriptUrlInput" value="${DB.settings.scriptUrl||''}"
             placeholder="https://script.google.com/macros/s/.../exec">
         </div>
-        <div style="margin-top:14px; display:flex; gap:10px">
+        <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap">
           <button class="btn btn-primary" onclick="saveScriptUrl()">Save URL</button>
           <button class="btn" onclick="loadFromSheets()">Load from Sheets</button>
           <button class="btn" onclick="syncToSheets()">Push to Sheets</button>
+          <button class="btn" onclick="saveScriptUrlAndRelogin()" style="background:var(--warning-bg);color:var(--warning);border-color:#f0d090">Save URL &amp; Re-verify Devices</button>
         </div>
+        <p style="font-size:12px; color:var(--text3); margin-top:10px; line-height:1.6">
+          &#9888; If you just set up the Apps Script URL for the first time, click <strong>Save URL &amp; Re-verify Devices</strong>. 
+          This logs you out and back in so your device gets properly registered in the Sheet whitelist.
+        </p>
         ${DB.settings.lastSync ? `<p style="font-size:12px; color:var(--text3); margin-top:10px">Last sync: ${new Date(DB.settings.lastSync).toLocaleString()}</p>` : ''}
       </div>
     </div>
@@ -1610,7 +1619,7 @@ function renderSettings() {
           Only devices on this list can access the CRM after entering the correct password.
           To whitelist someone else's device: they open the URL, enter the password, and share their Device ID with you from the blocked screen.
         </p>
-        <div id="deviceManagerList">${renderDeviceManager()}</div>
+        <div id="deviceManagerList"><p style="color:var(--text3);font-size:13px">Loading devices...</p></div>
       </div>
     </div>
     <div class="section-card" style="margin-top:20px">
@@ -1626,6 +1635,19 @@ function saveScriptUrl() {
   DB.settings.scriptUrl = document.getElementById('scriptUrlInput').value.trim();
   saveDB(); showToast('Script URL saved');
   if (DB.settings.scriptUrl) { setSyncStatus('pending', 'Connecting...'); syncToSheets(); }
+}
+
+function saveScriptUrlAndRelogin() {
+  const url = document.getElementById('scriptUrlInput').value.trim();
+  if (!url) { showToast('Please enter the Apps Script URL first'); return; }
+  DB.settings.scriptUrl = url;
+  saveDB();
+  showToast('URL saved — clearing session for re-verification...');
+  setTimeout(() => {
+    sessionStorage.removeItem(SESSION_KEY);
+    _authPwdOk = false;
+    location.reload();
+  }, 1200);
 }
 
 // ============================================================
@@ -1868,6 +1890,14 @@ function logout() {
   sessionStorage.removeItem(SESSION_KEY);
   _authPwdOk = false;
   location.reload();
+}
+
+function forceRelogin() {
+  // Clears session so next load goes through full Sheet-based device check
+  sessionStorage.removeItem(SESSION_KEY);
+  _authPwdOk = false;
+  showToast('Session cleared — reloading...');
+  setTimeout(() => location.reload(), 1000);
 }
 
 // --- Device management (Settings page) ---
