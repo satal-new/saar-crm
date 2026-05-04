@@ -2236,7 +2236,7 @@ function initAuth() {
       if (data.isFirstRun || data.allowed) {
         if (data.isFirstRun) {
           // Register as owner silently
-          fetch(DB.settings.scriptUrl, {
+          fetch(scriptUrl, {
             method: 'POST',
             body: JSON.stringify({ action: 'registerDevice', fingerprint: fp, name: 'Owner Device' })
           });
