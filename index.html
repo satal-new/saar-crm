@@ -1864,9 +1864,13 @@ function submitAuth() {
         showAuthStep('authStepBlocked');
       }
     })
-    .catch(() => {
-      // Network error — fall back to password-only access
-      grantSession(); unlockApp();
+    .catch(function(err) {
+      // Show the actual error so we can diagnose
+      showAuthStep('authStepLogin');
+      document.getElementById('authError').textContent = 'Sheet error: ' + (err.message || err.toString()) + ' — tap Continue to enter anyway';
+      document.getElementById('authInput').value = getStoredPassword();
+      // Add a bypass button for diagnostics
+      _authPwdOk = true;
     });
 }
 
@@ -2043,9 +2047,15 @@ function initAuth() {
         }, 100);
       }
     })
-    .catch(function() {
-      // Network error — trust the session
-      unlockApp();
+    .catch(function(err) {
+      // Show diagnostic error rather than silently letting in
+      sessionStorage.removeItem(SESSION_KEY);
+      showAuthStep('authStepLogin');
+      document.getElementById('authError').textContent = 'Connection error: ' + (err.message || 'unknown') + '. Enter password to retry.';
+      setTimeout(function() {
+        var el = document.getElementById('authInput');
+        if (el) el.focus();
+      }, 100);
     });
 }
 
